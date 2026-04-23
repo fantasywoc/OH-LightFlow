@@ -1,1 +1,17 @@
+<<<<<<< HEAD
 
+=======
+/node_modules
+/oh_modules
+/local.properties
+/.idea
+**/build
+/.hvigor
+.cxx
+/.clangd
+/.clang-format
+/.clang-tidy
+**/.test
+/.appanalyzer
+/entry/.preview/.default
+>>>>>>> 8aa1b49 (init)

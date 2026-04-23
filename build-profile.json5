@@ -1,0 +1,71 @@
+{
+  "app": {
+    "signingConfigs": [
+      {
+        "name": "default",
+        "type": "HarmonyOS",
+        "material": {
+          "certpath": "C:\\Users\\CK\\.ohos\\config\\default_lightFlow_K9bSR-4F9HhMQ3RKHpwGDGD22jyMg2j0Y4ESqvHwaHk=.cer",
+          "keyAlias": "debugKey",
+          "keyPassword": "0000001B51241608014949EB5DBE57B3B0FF5C82CDD726C6CEFE138560CB9C037BF9F29A1C5E0251CA20C4",
+          "profile": "C:\\Users\\CK\\.ohos\\config\\default_lightFlow_K9bSR-4F9HhMQ3RKHpwGDGD22jyMg2j0Y4ESqvHwaHk=.p7b",
+          "signAlg": "SHA256withECDSA",
+          "storeFile": "C:\\Users\\CK\\.ohos\\config\\default_lightFlow_K9bSR-4F9HhMQ3RKHpwGDGD22jyMg2j0Y4ESqvHwaHk=.p12",
+          "storePassword": "0000001B8B2FC93AFBCD0AFAF25F37B157FA110E407F012F15BA93E4FF7D9F54BA1954B9422EB18B6A18F8"
+        }
+      }
+    ],
+    "products": [
+      {
+        "name": "default",
+        "signingConfig": "default",
+        "targetSdkVersion": "6.0.2(22)",
+        "compatibleSdkVersion": "6.0.2(22)",
+        "runtimeOS": "HarmonyOS",
+        "buildOption": {
+          "strictMode": {
+            "caseSensitiveCheck": true,
+            "useNormalizedOHMUrl": true
+          }
+        }
+      }
+    ],
+    "buildModeSet": [
+      {
+        "name": "debug"
+      },
+      {
+        "name": "release"
+      }
+    ],
+    "capabilities": [
+      {
+        "bundleName": "com.example.lightflow",
+        "config": [
+          {
+            "name": "Push Kit",
+            "capability": "com.huawei.service.push.base_service"
+          },
+          {
+            "name": "Map Kit",
+            "capability": "com.huawei.service.mapkit"
+          }
+        ]
+      }
+    ]
+  },
+  "modules": [
+    {
+      "name": "entry",
+      "srcPath": "./entry",
+      "targets": [
+        {
+          "name": "default",
+          "applyToProducts": [
+            "default"
+          ]
+        }
+      ]
+    }
+  ]
+}
