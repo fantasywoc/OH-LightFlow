@@ -34,25 +34,30 @@ export default struct ImagePosition {
   private picSet: Set<string> = new Set();
   private locMap: Map<string, number> = new Map();
   private lastClickMarker: map.Marker | null = null;
+
+
+  // 用于标记：是否已经触发过按下事件
+  private hasTriggeredDown: boolean = false;
+  
   private mapOptions: mapCommon.MapOptions = {
     position: {
       target: {
         latitude: 33.0,
         longitude: 110.0
       },
-      zoom: 4.8
+      zoom: 5
     },
-    zoomControlsEnabled: false
+    sphereEnabled: true ,
+    zoomControlsEnabled: false,
+    // 设置地图为夜间模式
+    dayNightMode: mapCommon.DayNightMode.NIGHT
   };
 
   aboutToAppear(): void {
-    // 地图初始化的回调
     this.callback = async (err, mapController) => {
       if (!err) {
-        // 获取地图的控制器类，用来操作地图
         this.mapController = mapController;
         this.mapEventManager = this.mapController.getEventManager();
-        // 加载事件
         let mapLoadCallback = () => {
           hilog.info(0xFF00, 'ImagePosition', `on-mapLoad`);
         };
@@ -104,7 +109,41 @@ export default struct ImagePosition {
     Navigation(this.pageInfos) {
       Column() {
         Stack({ alignContent: Alignment.Bottom }) {
-          MapComponent({ mapOptions: this.mapOptions, mapCallback: this.callback });
+          MapComponent({ mapOptions: this.mapOptions, mapCallback: this.callback })
+            .onTouch((event) => {
+              // ===== 核心逻辑：只响应【第一次按下】，滑动不响应，抬起后重置 =====
+              if (event.type === TouchType.Down) {
+                // 已经按下过一次，直接忽略（滑动时不执行）
+                if (this.hasTriggeredDown) return;
+
+                // 标记为已触发，本次触摸期间不再更新
+                this.hasTriggeredDown = true;
+
+                // 获取按下时的第一个点
+                let positionX = this.getUIContext().vp2px(event.touches[0].x);
+                let positionY = this.getUIContext().vp2px(event.touches[0].y);
+                let projection: map.Projection | undefined = this.mapController?.getProjection();
+
+                if (projection) {
+                  let point: mapCommon.MapPoint = {
+                    positionX: positionX,
+                    positionY: positionY
+                  };
+                  let latLng: mapCommon.LatLng = projection.fromScreenLocation(point);
+
+                  this.getUIContext().getPromptAction().showToast({
+                    message: 'longitude: ' + latLng.longitude + '  latitude:' + latLng.latitude,
+                    duration: 3000
+                  });
+                }
+              }
+
+              // 手指抬起 → 重置标记，下次按下可以重新获取
+              else if (event.type === TouchType.Up) {
+                this.hasTriggeredDown = false;
+              }
+            });
+
           Column() {
             if (this.address) {
               Column() {
@@ -149,7 +188,9 @@ export default struct ImagePosition {
         }
         .width('100%')
         .height('100%');
-      };
+
+
+      }.ignoreLayoutSafeArea([LayoutSafeAreaType.SYSTEM], [LayoutSafeAreaEdge.TOP, LayoutSafeAreaEdge.BOTTOM]);
     }
     .hideTitleBar(true);
   }
@@ -170,7 +211,14 @@ export default struct ImagePosition {
           hilog.error(0xFF00, 'ImagePosition', `error message is ${error.message}`);
           return;
         }
-        marker.setIcon(pixelMap);
+        try {
+          // 设置图标
+          await marker.setIcon(pixelMap);
+
+        } finally {
+          // PixelMap用完立即释放，杜绝内存泄漏
+          pixelMap.release();
+        }
       });
   }
 
@@ -193,7 +241,6 @@ export default struct ImagePosition {
             hilog.info(0xFF00, 'ImagePosition', `Number: ${i}, LocationCnt: ${latLng} ${locCnt}`);
           }
 
-          // Marker初始化参数
           let markerOptions: mapCommon.MarkerOptions = {
             position: {
               latitude: locInfo.latitude,
@@ -226,15 +273,14 @@ export default struct ImagePosition {
       bearing: 0
     };
     let cameraUpdate = map.newCameraPosition(cameraPosition);
-    // 以动画方式移动地图相机
-    this.mapController!.animateCamera(cameraUpdate, 1000);
+    this.mapController!.animateCamera(cameraUpdate, 2000);
   }
 
   moveToLocation() {
     getLocationPermission(this.getUIContext().getHostContext()!).then(() => {
       let requestInfo: geoLocationManager.SingleLocationRequest = {
         'locatingPriority': geoLocationManager.LocatingPriority.PRIORITY_LOCATING_SPEED,
-        'locatingTimeoutMs': 10000
+        'locatingTimeoutMs': 20000
       };
       geoLocationManager.getCurrentLocation(requestInfo).then((res) => {
         hilog.info(0xFF00, 'ImagePosition', `getCurrentLocation`);

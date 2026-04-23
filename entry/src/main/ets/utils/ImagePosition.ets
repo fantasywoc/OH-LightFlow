@@ -28,7 +28,6 @@ export interface PicInfo {
 function getImageSource(uri: string): image.ImageSource {
   let fileObj = new fileUri.FileUri(uri);
   let file = fs.openSync(fileObj.path, fs.OpenMode.READ_ONLY);
-  //根据文件fd创建imagSource
   let imageSource: image.ImageSource;
   try {
     imageSource = image.createImageSource(file.fd);
