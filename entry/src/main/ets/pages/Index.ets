@@ -27,6 +27,7 @@ export default struct ImagePosition {
   @Provide('pageInfos') pageInfos: NavPathStack = new NavPathStack();
   @State hasMarker: boolean = false;
   @State address: string = '';
+  @State searchResult: site.SearchByTextResult = {}; // 地址搜索结果
   private callback?: AsyncCallback<map.MapComponentController>;
   private mapController?: map.MapComponentController;
   private mapEventManager?: map.MapEventManager;
@@ -82,6 +83,71 @@ export default struct ImagePosition {
     };
 
     this.moveToLocation();
+  }
+
+  // 搜索提交：输入关键词 → 调用 site.searchByText
+  private async searchLocation(query: string) {
+    if (!query || query.trim() === '') {
+      this.getUIContext().getPromptAction().showToast({
+        message: '请输入搜索地址',
+        duration: 2000
+      });
+      return;
+    }
+    // 搜索参数（动态使用用户输入的关键词）
+    let params: site.SearchByTextParams = {
+      query: query, // 👈 这里用搜索框输入的内容
+      location: {
+        latitude: 31.984,
+        longitude: 118.76625
+      },
+      radius: 10000,
+      language: "en"
+    };
+
+    try {
+      const result: site.SearchByTextResult = await site.searchByText(params);
+
+      // 🔥 修复1：先判断 sites 存在且不为空数组
+      if (!result.sites || result.sites.length === 0) {
+        this.getUIContext().getPromptAction().showToast({
+          message: "未找到相关地址",
+          duration: 2000
+        });
+        return;
+      }
+
+      // 🔥 修复2：安全获取长度
+      this.getUIContext().getPromptAction().showToast({
+        message: `找到 ${result.sites.length} 条结果`,
+        duration: 2000
+      });
+
+      // 🔥 修复3：取数组第一个元素 [0]
+      const firstSite = result.sites[0];
+      console.log("第一个地址名称：", firstSite.name);
+      console.log("第一个地址坐标：", firstSite.location);
+
+      // 可选：移动地图到搜索结果位置
+      if (firstSite.location) {
+        this.moveCamera({
+          latitude: firstSite.location.latitude,
+          longitude: firstSite.location.longitude,
+          address: firstSite.name ?? "",
+          uri: "",
+          marker: null
+        });
+      }
+
+    } catch (error) {
+      const err: BusinessError = error as BusinessError;
+      console.error("搜索失败：", err.code, err.message);
+      this.getUIContext().getPromptAction().showToast({
+        message: "搜索失败：" + err.message,
+        duration: 2000
+      });
+
+    }
   }
 
   @Builder
@@ -160,7 +226,7 @@ export default struct ImagePosition {
                   .searchButton($r('sys.symbol.magnifyingglass')) // 设置按钮
                   .onSubmit((value: string) => {
                     console.log("用户回车搜索：", value);
-                    // this.onSearchSubmit(value); // 绑定你的搜索函数
+                    this.searchLocation(value); // 绑定你的搜索函数
                   })
 
               }
