@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
+ * Copyright (c) 2025 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -34,17 +34,7 @@ const int32_t COLOR_START_WINDOW_BACKGROUND = 0x01000009;
 const int32_t FLOAT_PAGE_TEXT_FONT_SIZE = 0x0100001c;
 const int32_t MEDIA_BACKGROUND = 0x01000003;
 const int32_t MEDIA_FOREGROUND = 0x01000001;
-const int32_t MEDIA_IMG0 = 0x01000019;
-const int32_t MEDIA_IMG1 = 0x01000018;
-const int32_t MEDIA_IMG2 = 0x01000013;
-const int32_t MEDIA_IMG3 = 0x01000017;
-const int32_t MEDIA_IMG4 = 0x01000016;
-const int32_t MEDIA_IMG5 = 0x0100000c;
-const int32_t MEDIA_IMG6 = 0x0100000d;
-const int32_t MEDIA_IMG7 = 0x01000014;
-const int32_t MEDIA_IMG8 = 0x01000015;
 const int32_t MEDIA_LAYERED_IMAGE = 0x01000002;
-const int32_t MEDIA_PLAY_FILL = 0x0100001a;
 const int32_t MEDIA_STARTICON = 0x01000004;
 const int32_t PROFILE_BACKUP_CONFIG = 0x0100000b;
 const int32_t PROFILE_MAIN_PAGES = 0x0100000a;

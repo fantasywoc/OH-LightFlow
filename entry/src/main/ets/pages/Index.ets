@@ -14,7 +14,7 @@
  */
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
 import { image } from '@kit.ImageKit';
-import { map, mapCommon, MapComponent } from '@kit.MapKit';
+import { site ,map, mapCommon, MapComponent } from '@kit.MapKit';
 import { geoLocationManager } from '@kit.LocationKit';
 import { AsyncCallback, BusinessError } from '@kit.BasicServicesKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
@@ -108,6 +108,7 @@ export default struct ImagePosition {
   build() {
     Navigation(this.pageInfos) {
       Column() {
+        //Alignment.Botton 定位改为底部定位
         Stack({ alignContent: Alignment.Bottom }) {
           MapComponent({ mapOptions: this.mapOptions, mapCallback: this.callback })
             .onTouch((event) => {
@@ -145,15 +146,24 @@ export default struct ImagePosition {
             });
 
           Column() {
-            if (this.address) {
-              Column() {
-                Text(this.address)
-                  .fontWeight(700);
-              }
-              .width('100%')
-              .padding({ top: 24, left: 16, right: 16 });
-            }
             Column() {
+              Text(this.address)
+                .fontWeight(700)
+            }
+            .width('100%')
+            .padding({ top: 24, left: 16, right: 16 })
+            .clip(true);
+            Column() {
+              Row(){
+                Search()
+                  .margin({ left: 16, right: 16 })
+                  .searchButton($r('sys.symbol.magnifyingglass')) // 设置按钮
+                  .onSubmit((value: string) => {
+                    console.log("用户回车搜索：", value);
+                    // this.onSearchSubmit(value); // 绑定你的搜索函数
+                  })
+
+              }
               Row() {
                 Button('全部清除')
                   .flexGrow(1)
@@ -179,19 +189,34 @@ export default struct ImagePosition {
               .padding({ left: 16, right: 16 })
               .justifyContent(FlexAlign.SpaceAround);
             }
-            .height(80)
+            .height(100)
             .margin({ bottom: 24 });
           }
           .width('100%')
-          .backgroundColor($r('app.color.start_window_background'))
+          .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
+          .ignoreLayoutSafeArea([LayoutSafeAreaType.SYSTEM], [LayoutSafeAreaEdge.TOP, LayoutSafeAreaEdge.BOTTOM])
+
+          .animation({
+            duration: 3000,
+            curve: Curve.EaseOut,
+            onFinish: () => {/* 动画完成回调 */}
+          })
+          // .backgroundColor('rgba(255, 255, 255, 0.5)')
+          .backgroundBlurStyle(BlurStyle.Regular,
+            { colorMode: ThemeColorMode.LIGHT, adaptiveColor: AdaptiveColor.DEFAULT, scale: 1.0 })
           .borderRadius({ topLeft: 32, topRight: 32 });
         }
+        // .ignoreLayoutSafeArea([LayoutSafeAreaType.SYSTEM], [LayoutSafeAreaEdge.TOP, LayoutSafeAreaEdge.BOTTOM])
         .width('100%')
         .height('100%');
 
 
-      }.ignoreLayoutSafeArea([LayoutSafeAreaType.SYSTEM], [LayoutSafeAreaEdge.TOP, LayoutSafeAreaEdge.BOTTOM]);
+      }
+      .ignoreLayoutSafeArea([LayoutSafeAreaType.SYSTEM], [LayoutSafeAreaEdge.TOP, LayoutSafeAreaEdge.BOTTOM])
+      .width('100%')
+      .height('100%');
     }
+    .ignoreLayoutSafeArea([LayoutSafeAreaType.SYSTEM], [LayoutSafeAreaEdge.TOP, LayoutSafeAreaEdge.BOTTOM])
     .hideTitleBar(true);
   }
 

@@ -48,14 +48,6 @@
 			"name":	"backup_config",
 			"id":	"0x0100000B"
 		}, {
-			"type":	"media",
-			"name":	"img5",
-			"id":	"0x0100000C"
-		}, {
-			"type":	"media",
-			"name":	"img6",
-			"id":	"0x0100000D"
-		}, {
 			"type":	"string",
 			"name":	"index_diff_list",
 			"id":	"0x0100000E"
@@ -75,38 +67,6 @@
 			"type":	"string",
 			"name":	"index_same_list_one_type",
 			"id":	"0x01000012"
-		}, {
-			"type":	"media",
-			"name":	"img2",
-			"id":	"0x01000013"
-		}, {
-			"type":	"media",
-			"name":	"img7",
-			"id":	"0x01000014"
-		}, {
-			"type":	"media",
-			"name":	"img8",
-			"id":	"0x01000015"
-		}, {
-			"type":	"media",
-			"name":	"img4",
-			"id":	"0x01000016"
-		}, {
-			"type":	"media",
-			"name":	"img3",
-			"id":	"0x01000017"
-		}, {
-			"type":	"media",
-			"name":	"img1",
-			"id":	"0x01000018"
-		}, {
-			"type":	"media",
-			"name":	"img0",
-			"id":	"0x01000019"
-		}, {
-			"type":	"media",
-			"name":	"play_fill",
-			"id":	"0x0100001A"
 		}, {
 			"type":	"string",
 			"name":	"media_reason",

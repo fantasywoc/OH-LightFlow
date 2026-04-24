@@ -7,7 +7,7 @@
 		"icon": "$media:layered_image",
 		"label": "$string:app_name",
 		"apiReleaseType": "Release",
-		"compileSdkVersion": "6.0.2.130",
+		"compileSdkVersion": "6.1.0.105",
 		"targetAPIVersion": 60002022,
 		"minAPIVersion": 60002022,
 		"compileSdkType": "HarmonyOS",
@@ -87,6 +87,12 @@
 						]
 					}
 				]
+			},
+			{
+				"name": "FakeUIAbility",
+				"srcEntry": "../../.preview/fakeuiability/FakeUIAbility.ets",
+				"startWindowIcon": "startIcon",
+				"startWindowBackground": "#FFFFFF"
 			}
 		],
 		"extensionAbilities": [
