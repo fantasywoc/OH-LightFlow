@@ -27,7 +27,7 @@ export default struct ImagePosition {
   @Provide('pageInfos') pageInfos: NavPathStack = new NavPathStack();
   @State hasMarker: boolean = false;
   @State address: string = '';
-  @State searchResult: site.SearchByTextResult = {}; // 地址搜索结果
+  @State searchResult: site.SearchByTextResult = {} as site.SearchByTextResult;  // 地址搜索结果
   private callback?: AsyncCallback<map.MapComponentController>;
   private mapController?: map.MapComponentController;
   private mapEventManager?: map.MapEventManager;
@@ -122,7 +122,7 @@ export default struct ImagePosition {
         message: `找到 ${result.sites.length} 条结果`,
         duration: 2000
       });
-
+      this.searchResult = result;
       // 🔥 修复3：取数组第一个元素 [0]
       const firstSite = result.sites[0];
       console.log("第一个地址名称：", firstSite.name);
@@ -219,6 +219,9 @@ export default struct ImagePosition {
             .width('100%')
             .padding({ top: 24, left: 16, right: 16 })
             .clip(true);
+            ForEach(this.searchResult.sites || [], (item: site.Site) => {
+              Text(item.formatAddress).backgroundColor('#487e7e7e')// 显示格式化地址
+            })
             Column() {
               Row(){
                 Search()
