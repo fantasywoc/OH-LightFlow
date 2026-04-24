@@ -14,3 +14,4 @@
 **/.test
 /.appanalyzer
 /entry/.preview/.default
+/entry/.preview/
