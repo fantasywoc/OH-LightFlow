@@ -12,6 +12,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+import {
+  HdsListItemCard,
+  IconSize,
+  PrefixIcon,
+  SuffixImage,
+  SuffixSubIcon,
+  SuffixSwitch,
+  SuffixText,
+  SuffixTextAndArrow
+} from '@kit.UIDesignKit';
+import { KeyboardAvoidMode } from '@kit.ArkUI';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
 import { image } from '@kit.ImageKit';
 import { site ,map, mapCommon, MapComponent } from '@kit.MapKit';
@@ -20,6 +31,8 @@ import { AsyncCallback, BusinessError } from '@kit.BasicServicesKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { getImagePosition, PicInfo } from '../utils/ImagePosition';
 import { getLocationPermission } from '../utils/PermissionMng';
+import { debounce } from  '../utils/utils'
+
 
 @Entry
 @Component
@@ -27,7 +40,10 @@ export default struct ImagePosition {
   @Provide('pageInfos') pageInfos: NavPathStack = new NavPathStack();
   @State hasMarker: boolean = false;
   @State address: string = '';
+  @State currentLocation: mapCommon.LatLng = { latitude: 33.0, longitude: 110.0 };
   @State searchResult: site.SearchByTextResult = {} as site.SearchByTextResult;  // 地址搜索结果
+  @State keyboardHeight: number = 0;
+  private searchMarkerIds: Set<string> = new Set(); // 搜索标记ID集合
   private callback?: AsyncCallback<map.MapComponentController>;
   private mapController?: map.MapComponentController;
   private mapEventManager?: map.MapEventManager;
@@ -35,6 +51,8 @@ export default struct ImagePosition {
   private picSet: Set<string> = new Set();
   private locMap: Map<string, number> = new Map();
   private lastClickMarker: map.Marker | null = null;
+  private manualClickMarker: map.Marker | null = null;  //手动点击位置存放
+
 
 
   // 用于标记：是否已经触发过按下事件
@@ -53,8 +71,17 @@ export default struct ImagePosition {
     // 设置地图为夜间模式
     dayNightMode: mapCommon.DayNightMode.NIGHT
   };
+// 防抖位置搜索，避免频繁盗用
+  private debouncedSearchLocation: (value: string) => void = debounce((value: string) =>
+  {
+    this.searchLocation(value);
+  },
+    1000
+  );
 
   aboutToAppear(): void {
+    // 设置键盘避让模式为 RESIZE（压缩布局）
+    this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.RESIZE);
     this.callback = async (err, mapController) => {
       if (!err) {
         this.mapController = mapController;
@@ -65,7 +92,13 @@ export default struct ImagePosition {
         this.mapEventManager.on('mapLoad', mapLoadCallback);
 
         let markerCallback = (marker: map.Marker) => {
-          hilog.info(0xFF00, 'ImagePosition', `on-markerClick marker = ${marker.getId()}`);
+          // 👇 👇👇 核心：搜索标记不执行换图标逻辑
+          if (this.searchMarkerIds.has(marker.getId())) {
+            const info = this.picMap.get(marker.getId());
+            this.address = info?.address ?? "";
+            this.lastClickMarker = marker;
+            return;
+          }
 
           if (this.lastClickMarker === marker) {
             this.setMarkerIcon(marker, false);
@@ -90,19 +123,16 @@ export default struct ImagePosition {
     if (!query || query.trim() === '') {
       this.getUIContext().getPromptAction().showToast({
         message: '请输入搜索地址',
-        duration: 2000
+        duration: 1000
       });
       return;
     }
     // 搜索参数（动态使用用户输入的关键词）
     let params: site.SearchByTextParams = {
       query: query, // 👈 这里用搜索框输入的内容
-      location: {
-        latitude: 31.984,
-        longitude: 118.76625
-      },
-      radius: 10000,
-      language: "en"
+      location: this.currentLocation,   //隐藏location，radius搜索全国
+      radius: 50000,
+      language: "zh"
     };
 
     try {
@@ -149,6 +179,24 @@ export default struct ImagePosition {
 
     }
   }
+  private async addSearchMarker(locInfo: PicInfo) {
+    if (!this.mapController) return;
+
+    const markerOptions: mapCommon.MarkerOptions = {
+      position: { latitude: locInfo.latitude, longitude: locInfo.longitude },
+      icon: $r('sys.symbol.local'),
+      clickable: true
+    };
+
+    const marker = await this.mapController.addMarker(markerOptions);
+    if (!marker) return;
+
+    this.hasMarker = true;
+    this.picMap.set(marker.getId(), locInfo);
+    this.searchMarkerIds.add(marker.getId()); // 👈 加入搜索标记集合
+  }
+
+
 
   @Builder
   MarkerIconBuilder(uri: string, cnt: number, focus: boolean = false) {
@@ -178,60 +226,78 @@ export default struct ImagePosition {
         Stack({ alignContent: Alignment.Bottom }) {
           MapComponent({ mapOptions: this.mapOptions, mapCallback: this.callback })
             .onTouch((event) => {
-              // ===== 核心逻辑：只响应【第一次按下】，滑动不响应，抬起后重置 =====
               if (event.type === TouchType.Down) {
-                // 已经按下过一次，直接忽略（滑动时不执行）
                 if (this.hasTriggeredDown) return;
-
-                // 标记为已触发，本次触摸期间不再更新
                 this.hasTriggeredDown = true;
 
-                // 获取按下时的第一个点
                 let positionX = this.getUIContext().vp2px(event.touches[0].x);
                 let positionY = this.getUIContext().vp2px(event.touches[0].y);
-                let projection: map.Projection | undefined = this.mapController?.getProjection();
+                let projection = this.mapController?.getProjection();
 
                 if (projection) {
-                  let point: mapCommon.MapPoint = {
-                    positionX: positionX,
-                    positionY: positionY
-                  };
+                  let point: mapCommon.MapPoint = { positionX, positionY };
                   let latLng: mapCommon.LatLng = projection.fromScreenLocation(point);
 
+                  // ✅ 修复：删除旧标记用 clearMarker
+                  if (this.manualClickMarker) {
+                    
+                    this.manualClickMarker = null;
+                  }
+
+                  // 添加新标记
+                  const markerOpt: mapCommon.MarkerOptions = {
+                    position: {
+                      latitude: latLng.latitude,
+                      longitude: latLng.longitude
+                    },
+                    icon: $r('sys.symbol.local'),
+                    clickable: true
+                  };
+
+                  this.mapController?.addMarker(markerOpt).then(marker => {
+                    if (marker) {
+                      this.manualClickMarker = marker;
+                    }
+                  });
+
+                  // 显示坐标
                   this.getUIContext().getPromptAction().showToast({
-                    message: 'longitude: ' + latLng.longitude + '  latitude:' + latLng.latitude,
-                    duration: 3000
+                    message: `经度：${latLng.longitude}\n纬度：${latLng.latitude}`,
+                    duration: 2000
                   });
                 }
-              }
-
-              // 手指抬起 → 重置标记，下次按下可以重新获取
-              else if (event.type === TouchType.Up) {
+              } else if (event.type === TouchType.Up) {
                 this.hasTriggeredDown = false;
               }
-            });
+            })
+
 
           Column() {
-            Column() {
-              Text(this.address)
-                .fontWeight(700)
+
+            if (this.address) {
+              Column() {
+                Text(this.address)
+                  .fontWeight(700)
+              }
+              .width('100%')
+              .padding({ top: 24, left: 16, right: 16 })
+              .clip(true);
             }
-            .width('100%')
-            .padding({ top: 24, left: 16, right: 16 })
-            .clip(true);
-            ForEach(this.searchResult.sites || [], (item: site.Site) => {
-              Text(item.formatAddress).backgroundColor('#487e7e7e')// 显示格式化地址
-            })
+
+
             Column() {
               Row(){
                 Search()
-                  .margin({ left: 16, right: 16 })
-                  .searchButton($r('sys.symbol.magnifyingglass')) // 设置按钮
+                  .margin({ top:10,left: 16, right: 16 })
+                  .searchButton($r('sys.symbol.magnifyingglass')) // 设置搜索按钮
+                  .onChange((value: string) => {
+                    console.log("用户实时搜索：", value);
+                    this.debouncedSearchLocation(value); // 绑定你的搜索函数
+                  })
                   .onSubmit((value: string) => {
                     console.log("用户回车搜索：", value);
-                    this.searchLocation(value); // 绑定你的搜索函数
+                    this.debouncedSearchLocation(value); // 绑定你的搜索函数
                   })
-
               }
               Row() {
                 Button('全部清除')
@@ -254,23 +320,93 @@ export default struct ImagePosition {
                   });
               }
               .width('100%')
-              .margin({ top: 24 })
+              .margin({ top: 10 })
               .padding({ left: 16, right: 16 })
               .justifyContent(FlexAlign.SpaceAround);
             }
-            .height(100)
-            .margin({ bottom: 24 });
+            .height(130)
+            .margin({ bottom: 0 });
+
+            if(this.searchResult.sites){
+              List(){
+                ListItemGroup() {
+                  // 循环渲染搜索结果
+                  ForEach(this.searchResult.sites || [], (item: site.Site) => {
+                    ListItem() {
+                      Row() {
+                        // 🔥 完全对齐你给的官方风格：图标 + 双行文本
+                        HdsListItemCard({
+                          //图标
+                          prefixItem: new PrefixIcon({
+                            iconSize: IconSize.SYSTEM_ICON,
+                            iconValue: {
+                              symbol: $r('sys.symbol.local') // 地址用定位图标更合理
+                            },
+                          }),
+                          //文本
+                          textItem: {
+                            primaryText: {
+                              text: item.name ?? "未知地点",
+
+                            },
+                            secondaryText: {
+                              text: item.formatAddress ?? "无详细地址"
+                            },
+                          },
+                          suffixItem: new SuffixText({
+                            text: "" // 不需要右侧文字就留空
+                          }),
+                          cardPrefixMargin: 0,
+                          cardSuffixMargin: 0,
+                          cardBackgroundColor: '#0affffff',
+                          // cardBackgroundColor:Color.Transparent,
+                        })
+
+                      }
+                      .width('100%')
+                      .clickEffect({ level: ClickEffectLevel.HEAVY })
+                      .onClick(() => {
+                        if (item.location) {
+                          // 构造正确的 PicInfo
+                          const locInfo: PicInfo = {
+                            latitude: item.location.latitude,
+                            longitude: item.location.longitude,
+                            address: item.name ?? "",
+                            uri: "", // 搜索点没有图片，所以为空
+                            marker: null
+                          };
+
+                          this.moveCamera(locInfo);
+                          this.addSearchMarker(locInfo);
+                          this.searchResult = {} as site.SearchByTextResult;
+                        }
+                      })
+                    }
+                  })
+                }
+                .borderRadius(16)
+                .padding({ left: 6, right: 6 })
+                .backgroundColor('#00111111')
+                //分割线
+                .divider({
+                  strokeWidth: 1,
+                  startMargin: 40,
+                  endMargin: 6,
+                  color: $r('sys.color.comp_background_tertiary'),
+                })
+              }.height('50%')
+
+              .animation({
+                duration: 300,
+                curve: Curve.EaseOut,
+              })
+              .borderRadius(16)
+              .margin({top:5,bottom:5})
+            }
+
+
           }
           .width('100%')
-          .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
-          .ignoreLayoutSafeArea([LayoutSafeAreaType.SYSTEM], [LayoutSafeAreaEdge.TOP, LayoutSafeAreaEdge.BOTTOM])
-
-          .animation({
-            duration: 3000,
-            curve: Curve.EaseOut,
-            onFinish: () => {/* 动画完成回调 */}
-          })
-          // .backgroundColor('rgba(255, 255, 255, 0.5)')
           .backgroundBlurStyle(BlurStyle.Regular,
             { colorMode: ThemeColorMode.LIGHT, adaptiveColor: AdaptiveColor.DEFAULT, scale: 1.0 })
           .borderRadius({ topLeft: 32, topRight: 32 });
@@ -281,10 +417,10 @@ export default struct ImagePosition {
 
 
       }
-      .ignoreLayoutSafeArea([LayoutSafeAreaType.SYSTEM], [LayoutSafeAreaEdge.TOP, LayoutSafeAreaEdge.BOTTOM])
       .width('100%')
       .height('100%');
     }
+
     .ignoreLayoutSafeArea([LayoutSafeAreaType.SYSTEM], [LayoutSafeAreaEdge.TOP, LayoutSafeAreaEdge.BOTTOM])
     .hideTitleBar(true);
   }
@@ -367,7 +503,7 @@ export default struct ImagePosition {
       bearing: 0
     };
     let cameraUpdate = map.newCameraPosition(cameraPosition);
-    this.mapController!.animateCamera(cameraUpdate, 2000);
+    this.mapController!.animateCamera(cameraUpdate, 1000);
   }
 
   moveToLocation() {
@@ -378,6 +514,8 @@ export default struct ImagePosition {
       };
       geoLocationManager.getCurrentLocation(requestInfo).then((res) => {
         hilog.info(0xFF00, 'ImagePosition', `getCurrentLocation`);
+        this.currentLocation.latitude = res.latitude;
+        this.currentLocation.longitude = res.longitude;
         let locInfo: PicInfo = {
           latitude: res.latitude,
           longitude: res.longitude,
