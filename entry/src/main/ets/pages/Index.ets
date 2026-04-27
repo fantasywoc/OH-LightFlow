@@ -122,9 +122,8 @@ export default struct ImagePosition {
   // 搜索提交：输入关键词 → 调用 site.searchByText
   private async searchLocation(query: string) {
     if (!query || query.trim() === '') {
-      this.getUIContext().getPromptAction().showToast({
-        message: '请输入搜索地址',
-        duration: 1000
+      showToast(this.getUIContext(), '请输入搜索地址', 1000).then(() => {
+        // 可以在此执行后续操作，例如更新组件状态、发送网络请求等
       });
       return;
     }
@@ -141,9 +140,8 @@ export default struct ImagePosition {
 
       // 🔥 修复1：先判断 sites 存在且不为空数组
       if (!result.sites || result.sites.length === 0) {
-        this.getUIContext().getPromptAction().showToast({
-          message: "未找到相关地址",
-          duration: 2000
+        showToast(this.getUIContext(), "未找到相关地址", 2000).then(() => {
+          // 可以在此执行后续操作，例如更新组件状态、发送网络请求等
         });
         return;
       }
@@ -173,9 +171,8 @@ export default struct ImagePosition {
     } catch (error) {
       const err: BusinessError = error as BusinessError;
       console.error("搜索失败：", err.code, err.message);
-      this.getUIContext().getPromptAction().showToast({
-        message: "搜索失败：" + err.message,
-        duration: 2000
+      showToast(this.getUIContext(), "搜索失败：" + err.message, 2000).then(() => {
+        // 可以在此执行后续操作，例如更新组件状态、发送网络请求等
       });
 
     }
@@ -239,12 +236,6 @@ export default struct ImagePosition {
                   let point: mapCommon.MapPoint = { positionX, positionY };
                   let latLng: mapCommon.LatLng = projection.fromScreenLocation(point);
                   this.longPressLatLng = latLng;
-
-                  // 显示坐标
-                  // this.getUIContext().getPromptAction().showToast({
-                  //   message: `经度：${latLng.longitude}\n纬度：${latLng.latitude}`,
-                  //   duration: 2000
-                  // });
 
                   // 启动长按定时器
                   this.longPressTimer = setTimeout(() => {
@@ -656,9 +647,8 @@ export default struct ImagePosition {
     this.address = locInfo.address;
     
     // 显示添加成功提示
-    this.getUIContext().getPromptAction().showToast({
-      message: '已添加标记',
-      duration: 1500
+    showToast(this.getUIContext(), '已添加标记', 1500).then(() => {
+      // 可以在此执行后续操作，例如更新组件状态、发送网络请求等
     });
   }
 }

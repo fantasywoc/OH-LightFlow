@@ -25,14 +25,11 @@ export class ToastUtils {
     const promptAction = uiContext.getPromptAction();
     promptAction.showToast({
       message,
-      duration: 2000
+      duration: 1500
     });
 
   }
 }
-
-
-
 
 
 
