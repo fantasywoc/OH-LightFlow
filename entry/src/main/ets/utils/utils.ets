@@ -27,6 +27,7 @@ export class ToastUtils {
       message,
       duration: 2000
     });
+
   }
 }
 

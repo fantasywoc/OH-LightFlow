@@ -77,7 +77,7 @@ export async function getImagePosition(context: Context, uri: string): Promise<P
   };
 }
 
-// 根据坐标获取实际地址
+// [逆向地理编码]根据坐标获取实际地址
 export async function getAddressFromCoordinates(context: Context, latitude: number, longitude: number): Promise<string> {
   let params: site.ReverseGeocodeParams = {
     location: {

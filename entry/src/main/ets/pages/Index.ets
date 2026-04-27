@@ -555,9 +555,8 @@ export default struct ImagePosition {
             }
             
             // 显示更新成功提示
-            this.getUIContext().getPromptAction().showToast({
-              message: '搜索标记位置已更新',
-              duration: 500
+            showToast(this.getUIContext(), '搜索标记位置已更新', 1500).then(() => {
+              // 可以在此执行后续操作，例如更新组件状态、发送网络请求等
             });
           }
           searchMarkerFound = true;
