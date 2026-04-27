@@ -515,53 +515,44 @@ export default struct ImagePosition {
     });
   }
 
-  // 处理长按事件：更新搜索标记位置或添加新标记
+  // 处理长按事件：只维护一个标记，更新或添加
   private async handleLongPress() {
     if (this.longPressLatLng) {
-      // 优先更新搜索结果标记
-      let searchMarkerFound = false;
+      // 检查是否存在任何标记
+      let existingMarker: map.Marker | null = null;
+      
+      // 优先检查搜索标记
       for (const markerId of this.searchMarkerIds) {
         const marker = this.getMarkerById(markerId);
         if (marker) {
-          // 更新搜索标记位置
-          await marker.setPosition(this.longPressLatLng);
-          
-          // 更新对应 PicInfo 数据
-          let picInfo = this.picMap.get(markerId);
-          if (picInfo) {
-            picInfo.latitude = this.longPressLatLng.latitude;
-            picInfo.longitude = this.longPressLatLng.longitude;
-            
-            // 更新地址信息
-            try {
-              picInfo.address = await getAddressFromCoordinates(this.getUIContext().getHostContext()!, 
-                this.longPressLatLng.latitude, this.longPressLatLng.longitude);
-            } catch (error) {
-              picInfo.address = `经度：${this.longPressLatLng.longitude}\n纬度：${this.longPressLatLng.latitude}`;
-            }
-            
-            // 如果是当前选中的标记，更新显示的地址
-            if (this.lastClickMarker === marker) {
-              this.address = picInfo.address;
-            }
-            
-            // 显示更新成功提示
-            showToast(this.getUIContext(), '搜索标记位置已更新', 1500).then(() => {
-              // 可以在此执行后续操作，例如更新组件状态、发送网络请求等
-            });
-          }
-          searchMarkerFound = true;
+          existingMarker = marker;
           break;
         }
       }
       
-      // 如果没有搜索标记，更新当前选中的标记
-      if (!searchMarkerFound && this.lastClickMarker) {
+      // 如果没有搜索标记，检查当前选中的标记
+      if (!existingMarker && this.lastClickMarker) {
+        existingMarker = this.lastClickMarker;
+      }
+      
+      // 如果没有搜索标记和选中标记，检查是否有其他标记
+      if (!existingMarker && this.picMap.size > 0) {
+        let entries = this.picMap.entries();
+        for (let entry of entries) {
+          let info = entry[1];
+          if (info.marker) {
+            existingMarker = info.marker;
+            break;
+          }
+        }
+      }
+      
+      if (existingMarker) {
         // 更新现有标记位置
-        await this.lastClickMarker.setPosition(this.longPressLatLng);
+        await existingMarker.setPosition(this.longPressLatLng);
         
         // 更新对应 PicInfo 数据
-        let markerId = this.lastClickMarker.getId();
+        let markerId = existingMarker.getId();
         let picInfo = this.picMap.get(markerId);
         if (picInfo) {
           picInfo.latitude = this.longPressLatLng.latitude;
@@ -571,24 +562,24 @@ export default struct ImagePosition {
           try {
             picInfo.address = await getAddressFromCoordinates(this.getUIContext().getHostContext()!, 
               this.longPressLatLng.latitude, this.longPressLatLng.longitude);
-            // 更新显示的地址
-            this.address = picInfo.address;
+            // 如果是当前选中的标记，更新显示的地址
+            if (this.lastClickMarker === existingMarker) {
+              this.address = picInfo.address;
+            }
           } catch (error) {
             picInfo.address = `经度：${this.longPressLatLng.longitude}\n纬度：${this.longPressLatLng.latitude}`;
-            this.address = picInfo.address;
+            if (this.lastClickMarker === existingMarker) {
+              this.address = picInfo.address;
+            }
           }
-
+          
           // 显示更新成功提示
           showToast(this.getUIContext(), '标记位置已更新', 2000).then(() => {
             // 可以在此执行后续操作，例如更新组件状态、发送网络请求等
           });
-
-
         }
-      }
-      
-      // 如果既没有搜索标记也没有选中标记，添加新标记
-      if (!searchMarkerFound && !this.lastClickMarker) {
+      } else {
+        // 如果没有任何标记，添加新标记
         await this.addLongPressMarker(this.longPressLatLng);
       }
     }
