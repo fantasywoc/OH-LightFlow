@@ -42,7 +42,6 @@ export default struct ImagePosition {
   @State address: string = '';
   @State currentLocation: mapCommon.LatLng = { latitude: 33.0, longitude: 110.0 };
   @State searchResult: site.SearchByTextResult = {} as site.SearchByTextResult;  // 地址搜索结果
-  @State keyboardHeight: number = 0;
   private searchMarkerIds: Set<string> = new Set(); // 搜索标记ID集合
   private callback?: AsyncCallback<map.MapComponentController>;
   private mapController?: map.MapComponentController;
@@ -51,13 +50,7 @@ export default struct ImagePosition {
   private picSet: Set<string> = new Set();
   private locMap: Map<string, number> = new Map();
   private lastClickMarker: map.Marker | null = null;
-  private manualClickMarker: map.Marker | null = null;  //手动点击位置存放
 
-
-
-  // 用于标记：是否已经触发过按下事件
-  private hasTriggeredDown: boolean = false; 
-  private longPressTimer: number | null = null;  // 长按定时器
   private longPressLatLng: mapCommon.LatLng | null = null;  // 长按位置
   
   private mapOptions: mapCommon.MapOptions = {
@@ -93,9 +86,15 @@ export default struct ImagePosition {
         };
         this.mapEventManager.on('mapLoad', mapLoadCallback);
 
+        // 地图长按事件监听
+        let mapLongClickCallback = (position: mapCommon.LatLng) => {
+          hilog.info(0xFF00, 'ImagePosition', `on-mapLongClick position = ${position.longitude}`);
+          this.longPressLatLng = position;
+          this.handleLongPress();
+        };
+        this.mapEventManager.on('mapLongClick', mapLongClickCallback);
+
         let markerCallback = (marker: map.Marker) => {
-          this.hasTriggeredDown = false;
-          
           // 检查是否是搜索标记或长按标记
           const markerId = marker.getId();
           const picInfo = this.picMap.get(markerId);
@@ -195,7 +194,6 @@ export default struct ImagePosition {
   }
 
 
-
   @Builder
   MarkerIconBuilder(uri: string, cnt: number, focus: boolean = false) {
     Row() {
@@ -223,40 +221,6 @@ export default struct ImagePosition {
         //Alignment.Botton 定位改为底部定位
         Stack({ alignContent: Alignment.Bottom }) {
           MapComponent({ mapOptions: this.mapOptions, mapCallback: this.callback })
-            .onTouch((event) => {
-              if (event.type === TouchType.Down) {
-                if (this.hasTriggeredDown) return;
-                this.hasTriggeredDown = true;
-
-                let positionX = this.getUIContext().vp2px(event.touches[0].x);
-                let positionY = this.getUIContext().vp2px(event.touches[0].y);
-                let projection = this.mapController?.getProjection();
-
-                if (projection) {
-                  let point: mapCommon.MapPoint = { positionX, positionY };
-                  let latLng: mapCommon.LatLng = projection.fromScreenLocation(point);
-                  this.longPressLatLng = latLng;
-
-                  // 启动长按定时器
-                  this.longPressTimer = setTimeout(() => {
-                    this.handleLongPress();
-                  }, 1000); // 1000ms长按
-                }
-              } else if (event.type === TouchType.Up) {
-                this.hasTriggeredDown = false;
-                // 清除长按定时器
-                if (this.longPressTimer) {
-                  clearTimeout(this.longPressTimer);
-                  this.longPressTimer = null;
-                }
-              } else if (event.type === TouchType.Move) {
-                // 清除长按定时器（移动时取消长按）
-                if (this.longPressTimer) {
-                  clearTimeout(this.longPressTimer);
-                  this.longPressTimer = null;
-                }
-              }
-            })
 
 
           Column() {
