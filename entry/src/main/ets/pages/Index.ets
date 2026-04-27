@@ -31,7 +31,7 @@ import { AsyncCallback, BusinessError } from '@kit.BasicServicesKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { getImagePosition, getAddressFromCoordinates, PicInfo } from '../utils/ImagePosition';
 import { getLocationPermission } from '../utils/PermissionMng';
-import { debounce } from  '../utils/utils'
+import { debounce ,showToast} from  '../utils/utils'
 
 
 @Entry
@@ -557,7 +557,7 @@ export default struct ImagePosition {
             // 显示更新成功提示
             this.getUIContext().getPromptAction().showToast({
               message: '搜索标记位置已更新',
-              duration: 1500
+              duration: 500
             });
           }
           searchMarkerFound = true;
@@ -587,12 +587,13 @@ export default struct ImagePosition {
             picInfo.address = `经度：${this.longPressLatLng.longitude}\n纬度：${this.longPressLatLng.latitude}`;
             this.address = picInfo.address;
           }
-          
+
           // 显示更新成功提示
-          this.getUIContext().getPromptAction().showToast({
-            message: '标记位置已更新',
-            duration: 1500
+          showToast(this.getUIContext(), '标记位置已更新', 2000).then(() => {
+            // 可以在此执行后续操作，例如更新组件状态、发送网络请求等
           });
+
+
         }
       }
       
