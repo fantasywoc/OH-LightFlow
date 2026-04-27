@@ -29,7 +29,7 @@ import { site ,map, mapCommon, MapComponent } from '@kit.MapKit';
 import { geoLocationManager } from '@kit.LocationKit';
 import { AsyncCallback, BusinessError } from '@kit.BasicServicesKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
-import { getImagePosition, PicInfo } from '../utils/ImagePosition';
+import { getImagePosition, getAddressFromCoordinates, PicInfo } from '../utils/ImagePosition';
 import { getLocationPermission } from '../utils/PermissionMng';
 import { debounce } from  '../utils/utils'
 
@@ -56,7 +56,9 @@ export default struct ImagePosition {
 
 
   // 用于标记：是否已经触发过按下事件
-  private hasTriggeredDown: boolean = false;
+  private hasTriggeredDown: boolean = false; 
+  private longPressTimer: number | null = null;  // 长按定时器
+  private longPressLatLng: mapCommon.LatLng | null = null;  // 长按位置
   
   private mapOptions: mapCommon.MapOptions = {
     position: {
@@ -92,23 +94,22 @@ export default struct ImagePosition {
         this.mapEventManager.on('mapLoad', mapLoadCallback);
 
         let markerCallback = (marker: map.Marker) => {
-          // 👇 👇👇 核心：搜索标记不执行换图标逻辑
-          if (this.searchMarkerIds.has(marker.getId())) {
-            const info = this.picMap.get(marker.getId());
-            this.address = info?.address ?? "";
-            this.lastClickMarker = marker;
-            return;
-          }
-
-          if (this.lastClickMarker === marker) {
-            this.setMarkerIcon(marker, false);
-            this.lastClickMarker = null;
-          } else {
-            if (this.lastClickMarker !== null) {
-              this.setMarkerIcon(this.lastClickMarker, false);
+          this.hasTriggeredDown = false;
+          
+          // 检查是否是搜索标记或长按标记
+          const markerId = marker.getId();
+          const picInfo = this.picMap.get(markerId);
+          
+          if (picInfo) {
+            if (this.lastClickMarker === marker) {
+              // 再次点击，隐藏地址
+              this.address = '';
+              this.lastClickMarker = null;
+            } else {
+              // 点击新标记，显示地址
+              this.address = picInfo.address;
+              this.lastClickMarker = marker;
             }
-            this.setMarkerIcon(marker, true);
-            this.lastClickMarker = marker;
           }
         };
         this.mapEventManager.on('markerClick', markerCallback);
@@ -237,37 +238,32 @@ export default struct ImagePosition {
                 if (projection) {
                   let point: mapCommon.MapPoint = { positionX, positionY };
                   let latLng: mapCommon.LatLng = projection.fromScreenLocation(point);
-
-                  // ✅ 修复：删除旧标记用 clearMarker
-                  if (this.manualClickMarker) {
-                    
-                    this.manualClickMarker = null;
-                  }
-
-                  // 添加新标记
-                  const markerOpt: mapCommon.MarkerOptions = {
-                    position: {
-                      latitude: latLng.latitude,
-                      longitude: latLng.longitude
-                    },
-                    icon: $r('sys.symbol.local'),
-                    clickable: true
-                  };
-
-                  this.mapController?.addMarker(markerOpt).then(marker => {
-                    if (marker) {
-                      this.manualClickMarker = marker;
-                    }
-                  });
+                  this.longPressLatLng = latLng;
 
                   // 显示坐标
-                  this.getUIContext().getPromptAction().showToast({
-                    message: `经度：${latLng.longitude}\n纬度：${latLng.latitude}`,
-                    duration: 2000
-                  });
+                  // this.getUIContext().getPromptAction().showToast({
+                  //   message: `经度：${latLng.longitude}\n纬度：${latLng.latitude}`,
+                  //   duration: 2000
+                  // });
+
+                  // 启动长按定时器
+                  this.longPressTimer = setTimeout(() => {
+                    this.handleLongPress();
+                  }, 1000); // 1000ms长按
                 }
               } else if (event.type === TouchType.Up) {
                 this.hasTriggeredDown = false;
+                // 清除长按定时器
+                if (this.longPressTimer) {
+                  clearTimeout(this.longPressTimer);
+                  this.longPressTimer = null;
+                }
+              } else if (event.type === TouchType.Move) {
+                // 清除长按定时器（移动时取消长按）
+                if (this.longPressTimer) {
+                  clearTimeout(this.longPressTimer);
+                  this.longPressTimer = null;
+                }
               }
             })
 
@@ -525,6 +521,144 @@ export default struct ImagePosition {
         };
         this.moveCamera(locInfo, 8);
       });
+    });
+  }
+
+  // 处理长按事件：更新搜索标记位置或添加新标记
+  private async handleLongPress() {
+    if (this.longPressLatLng) {
+      // 优先更新搜索结果标记
+      let searchMarkerFound = false;
+      for (const markerId of this.searchMarkerIds) {
+        const marker = this.getMarkerById(markerId);
+        if (marker) {
+          // 更新搜索标记位置
+          await marker.setPosition(this.longPressLatLng);
+          
+          // 更新对应 PicInfo 数据
+          let picInfo = this.picMap.get(markerId);
+          if (picInfo) {
+            picInfo.latitude = this.longPressLatLng.latitude;
+            picInfo.longitude = this.longPressLatLng.longitude;
+            
+            // 更新地址信息
+            try {
+              picInfo.address = await getAddressFromCoordinates(this.getUIContext().getHostContext()!, 
+                this.longPressLatLng.latitude, this.longPressLatLng.longitude);
+            } catch (error) {
+              picInfo.address = `经度：${this.longPressLatLng.longitude}\n纬度：${this.longPressLatLng.latitude}`;
+            }
+            
+            // 如果是当前选中的标记，更新显示的地址
+            if (this.lastClickMarker === marker) {
+              this.address = picInfo.address;
+            }
+            
+            // 显示更新成功提示
+            this.getUIContext().getPromptAction().showToast({
+              message: '搜索标记位置已更新',
+              duration: 1500
+            });
+          }
+          searchMarkerFound = true;
+          break;
+        }
+      }
+      
+      // 如果没有搜索标记，更新当前选中的标记
+      if (!searchMarkerFound && this.lastClickMarker) {
+        // 更新现有标记位置
+        await this.lastClickMarker.setPosition(this.longPressLatLng);
+        
+        // 更新对应 PicInfo 数据
+        let markerId = this.lastClickMarker.getId();
+        let picInfo = this.picMap.get(markerId);
+        if (picInfo) {
+          picInfo.latitude = this.longPressLatLng.latitude;
+          picInfo.longitude = this.longPressLatLng.longitude;
+          
+          // 更新地址信息
+          try {
+            picInfo.address = await getAddressFromCoordinates(this.getUIContext().getHostContext()!, 
+              this.longPressLatLng.latitude, this.longPressLatLng.longitude);
+            // 更新显示的地址
+            this.address = picInfo.address;
+          } catch (error) {
+            picInfo.address = `经度：${this.longPressLatLng.longitude}\n纬度：${this.longPressLatLng.latitude}`;
+            this.address = picInfo.address;
+          }
+          
+          // 显示更新成功提示
+          this.getUIContext().getPromptAction().showToast({
+            message: '标记位置已更新',
+            duration: 1500
+          });
+        }
+      }
+      
+      // 如果既没有搜索标记也没有选中标记，添加新标记
+      if (!searchMarkerFound && !this.lastClickMarker) {
+        await this.addLongPressMarker(this.longPressLatLng);
+      }
+    }
+  }
+
+  // 根据标记ID获取标记对象
+  private getMarkerById(markerId: string): map.Marker | null {
+    // 遍历 picMap 查找对应的标记
+    let entries = this.picMap.entries();
+    for (let entry of entries) {
+      let id = entry[0];
+      let info = entry[1];
+      if (id === markerId && info.marker) {
+        return info.marker;
+      }
+    }
+    return null;
+  }
+
+  // 添加长按标记
+  private async addLongPressMarker(latLng: mapCommon.LatLng) {
+    if (!this.mapController) return;
+
+    const markerOptions: mapCommon.MarkerOptions = {
+      position: latLng,
+      icon: $r('sys.symbol.local'),
+      clickable: true
+    };
+
+    const marker = await this.mapController.addMarker(markerOptions);
+    if (!marker) return;
+
+    this.hasMarker = true;
+    
+    // 获取实际地址
+    let address = '';
+    try {
+      address = await getAddressFromCoordinates(this.getUIContext().getHostContext()!, latLng.latitude, latLng.longitude);
+    } catch (error) {
+      address = `经度：${latLng.longitude}\n纬度：${latLng.latitude}`;
+    }
+    
+    // 创建 PicInfo 数据
+    const locInfo: PicInfo = {
+      latitude: latLng.latitude,
+      longitude: latLng.longitude,
+      address: address,
+      uri: '',
+      marker: marker
+    };
+
+    this.picMap.set(marker.getId(), locInfo);
+    this.lastClickMarker = marker;
+    
+    // 显示标记信息
+    this.address = locInfo.address;
+    
+    // 显示添加成功提示
+    this.getUIContext().getPromptAction().showToast({
+      message: '已添加标记',
+      duration: 1500
     });
   }
 }

@@ -76,3 +76,22 @@ export async function getImagePosition(context: Context, uri: string): Promise<P
     marker: null
   };
 }
+
+// 根据坐标获取实际地址
+export async function getAddressFromCoordinates(context: Context, latitude: number, longitude: number): Promise<string> {
+  let params: site.ReverseGeocodeParams = {
+    location: {
+      latitude: latitude,
+      longitude: longitude
+    },
+    language: 'zh',
+    radius: 100
+  };
+  try {
+    let result = await site.reverseGeocode(context, params);
+    return result.addressDescription || `经度：${longitude}\n纬度：${latitude}`;
+  } catch (error) {
+    hilog.error(0xFF00, 'ImagePosition', `reverseGeocode error: ${error}`);
+    return `经度：${longitude}\n纬度：${latitude}`;
+  }
+}
