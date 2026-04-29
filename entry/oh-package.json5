@@ -5,6 +5,7 @@
   "main": "",
   "author": "",
   "license": "",
-  "dependencies": {}
+  "dependencies": {
+    "libexiftool.so": "file:./src/main/cpp/types/libexiftool"
+  }
 }
-

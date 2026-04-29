@@ -35,14 +35,11 @@ export class ToastUtils {
 
 /**
  * 显示Toast提示的工具函数
- @param
- uiContext 当前UI组件的上下文，可通过 this.getUIContext() 获取
- @param
- message 要显示的文本信息
- @param
- duration Toast显示的持续时间（毫秒），建议范围1500-10000，默认2000
+ * @param {UIContext} uiContext 当前UI组件的上下文，可通过 this.getUIContext() 获取
+ * @param {string} message 要显示的文本信息
+ * @param {number} duration Toast显示的持续时间（毫秒），建议范围1500-10000，默认2000
  */
-export async function showToast(uiContext: UIContext, message: string, duration: number = 2000): Promise<void> {
+export async function showToast(uiContext: UIContext, message: string, duration: number = 1500): Promise<void> {
   try {
     // 通过UIContext获取与当前UI实例关联的PromptAction对象
     const promptActionInstance = uiContext.getPromptAction();

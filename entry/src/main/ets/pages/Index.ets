@@ -32,7 +32,9 @@ import { hilog } from '@kit.PerformanceAnalysisKit';
 import { getImagePosition, getAddressFromCoordinates, PicInfo } from '../utils/ImagePosition';
 import { getLocationPermission } from '../utils/PermissionMng';
 import { debounce ,showToast} from  '../utils/utils'
-
+import {ExifUtility} from  '../utils/ExifUtility'
+import LibExifTool from '../utils/LibExifTool';
+import { SaveImageHelper } from '../utils/SaveImageHelper';
 
 @Entry
 @Component
@@ -42,6 +44,7 @@ export default struct ImagePosition {
   @State address: string = '';
   @State currentLocation: mapCommon.LatLng = { latitude: 33.0, longitude: 110.0 };
   @State searchResult: site.SearchByTextResult = {} as site.SearchByTextResult;  // 地址搜索结果
+  @State hasSelectedImage: boolean = false; // 是否有选中的图片需要保存
   private searchMarkerId: string | null = null; // 搜索结果和长按的位置标记ID（仅一个）
   private callback?: AsyncCallback<map.MapComponentController>;
   private mapController?: map.MapComponentController;
@@ -50,6 +53,7 @@ export default struct ImagePosition {
   private picSet: Set<string> = new Set(); // 图片标记集合（用于区分哪些是图片）
   private locMap: Map<string, number> = new Map();
   private lastClickMarker: map.Marker | null = null;
+  private modifiedPicInfo: PicInfo | null = null; // 记录被修改过位置的图片信息
 
   private longPressLatLng: mapCommon.LatLng | null = null;  // 长按位置
   
@@ -64,7 +68,13 @@ export default struct ImagePosition {
     sphereEnabled: true ,
     zoomControlsEnabled: false,
     // 设置地图为夜间模式
-    dayNightMode: mapCommon.DayNightMode.NIGHT
+    dayNightMode: mapCommon.DayNightMode.NIGHT,
+    // STANDARD：标准地图，展示道路、建筑物以及河流等重要的自然特征。
+    // NONE：空地图，没有加载任何数据的地图。
+    // TERRAIN：地形图，在保留了行政区划边界、POI、楼块等地图要素的基础上，呈现完整清晰描绘地形走势的标准地图。
+    // SATELLITE：卫星图，只支持中国。
+    // HYBRID：混合地图，在显示卫星和路网信息。
+    mapType: mapCommon.MapType.STANDARD
   };
 // 防抖位置搜索，避免频繁盗用
   private debouncedSearchLocation: (value: string) => void = debounce((value: string) =>
@@ -277,9 +287,16 @@ export default struct ImagePosition {
                   });
                 Button('选择图片')
                   .flexGrow(1)
-                  .margin({ left: 16 })
+                  .margin({ left: 8 })
                   .onClick(() => {
                     this.selectImage();
+                  });
+                Button('保存图片')
+                  .flexGrow(1)
+                  .margin({ left: 8 })
+                  .enabled(this.hasSelectedImage)
+                  .onClick(async () => {
+                    await this.saveModifiedImageToAlbum();
                   });
               }
               .width('100%')
@@ -427,6 +444,13 @@ export default struct ImagePosition {
           let locInfo: PicInfo = await getImagePosition(this.getUIContext().getHostContext()!, uri);
 
           if (!this.picSet.has(uri)) {
+
+            let info = LibExifTool.getImageInfo(LibExifTool.uriToPath(uri));
+            if (info && info.make) {
+              showToast(this.getUIContext(),  info.make);
+            } else {
+              showToast(this.getUIContext(), "无相机信息test Fail");
+            }
             let latLng = locInfo.latitude.toString() + locInfo.longitude.toString();
             let locCnt = this.locMap.get(latLng) ?? 0;
             this.locMap.set(latLng, locCnt + 1);
@@ -551,7 +575,67 @@ export default struct ImagePosition {
       }
     }
     
+    // 将新位置更新到图片EXIF GPS信息中
+    await this.updateExifGPS(picInfo);
+    
+    // 记录被修改的图片信息，用于后续保存
+    if (picInfo.uri && picInfo.uri !== '') {
+      this.modifiedPicInfo = picInfo;
+      this.hasSelectedImage = true;
+    }
+    
     showToast(this.getUIContext(), '标记位置已更新', 2000);
+  }
+
+  /**
+   * 将新位置更新到图片EXIF GPS信息中
+   * @param picInfo 图片信息对象
+   */
+  private async updateExifGPS(picInfo: PicInfo) {
+    try {
+      hilog.info(0xFF00, 'Index', `updateExifGPS: Start updating GPS for ${picInfo.uri}`);
+      hilog.info(0xFF00, 'Index', `updateExifGPS: lat=${picInfo.latitude}, lng=${picInfo.longitude}`);
+
+      // 检查URI是否有效
+      if (!picInfo.uri || picInfo.uri === '') {
+        hilog.error(0xFF00, 'Index', `updateExifGPS: Invalid URI`);
+        return;
+      }
+
+      // 判断是否是媒体库URI
+      if (picInfo.uri.startsWith('file://media/')) {
+        // 使用媒体库专用方法更新GPS
+        hilog.info(0xFF00, 'Index', `updateExifGPS: Media library URI detected, using updateMediaGPS...`);
+        const success = await ExifUtility.updateMediaGPS(picInfo.uri, picInfo.latitude, picInfo.longitude);
+        if (success) {
+          hilog.info(0xFF00, 'Index', `updateExifGPS: GPS updated successfully via updateMediaGPS`);
+        } else {
+          hilog.error(0xFF00, 'Index', `updateExifGPS: updateMediaGPS failed`);
+        }
+      } else {
+        // 普通文件，使用原有方法
+        hilog.info(0xFF00, 'Index', `updateExifGPS: Regular file URI, using createImageSourceFromUri...`);
+        const imageSource = ExifUtility.createImageSourceFromUri(picInfo.uri, false);
+        const modifySuccess = await ExifUtility.modifyGPSCoordinates(
+          imageSource,
+          picInfo.latitude,
+          picInfo.longitude
+        );
+
+        if (modifySuccess) {
+          const saveSuccess = await ExifUtility.saveExifToFile(imageSource, picInfo.uri);
+          if (saveSuccess) {
+            hilog.info(0xFF00, 'Index', `updateExifGPS: GPS updated successfully for ${picInfo.uri}`);
+          } else {
+            hilog.error(0xFF00, 'Index', `updateExifGPS: Failed to save EXIF to file`);
+          }
+        } else {
+          hilog.error(0xFF00, 'Index', `updateExifGPS: Failed to modify GPS coordinates`);
+        }
+      }
+    } catch (error) {
+      hilog.error(0xFF00, 'Index', `updateExifGPS error: ${error}`);
+    }
   }
 
   // 根据标记ID获取标记对象
@@ -618,5 +702,62 @@ export default struct ImagePosition {
     
     // 显示添加成功提示
     showToast(this.getUIContext(), '已添加标记', 1500);
+  }
+
+  private async saveModifiedImageToAlbum(): Promise<void> {
+    if (!this.modifiedPicInfo || !this.modifiedPicInfo.uri) {
+      showToast(this.getUIContext(), '没有可保存的图片', 2000);
+      return;
+    }
+
+    const context = this.getUIContext().getHostContext();
+    if (!context) {
+      showToast(this.getUIContext(), '无法获取应用上下文', 2000);
+      return;
+    }
+
+    const picInfo = this.modifiedPicInfo;
+    hilog.info(0xFF00, 'Index', 'saveModifiedImageToAlbum: uri=' + picInfo.uri);
+
+    try {
+      if (picInfo.uri.startsWith('file://media/')) {
+        hilog.info(0xFF00, 'Index', 'saveModifiedImageToAlbum: Media library URI detected');
+
+        const imageSource = ExifUtility.createImageSourceFromUri(picInfo.uri, false);
+
+        const modifySuccess = await ExifUtility.modifyGPSCoordinates(
+          imageSource,
+          picInfo.latitude,
+          picInfo.longitude
+        );
+
+        if (!modifySuccess) {
+          showToast(this.getUIContext(), '修改GPS信息失败', 2000);
+          return;
+        }
+
+        const result = await SaveImageHelper.saveImageSourceToAlbum(context, imageSource);
+
+        if (result.success) {
+          showToast(this.getUIContext(), '图片已保存到相册', 2000);
+        } else {
+          showToast(this.getUIContext(), result.message, 2000);
+        }
+      } else {
+        hilog.info(0xFF00, 'Index', 'saveModifiedImageToAlbum: Regular file URI');
+
+        const result = await SaveImageHelper.saveFileToAlbum(context, picInfo.uri);
+
+        if (result.success) {
+          showToast(this.getUIContext(), '图片已保存到相册', 2000);
+        } else {
+          showToast(this.getUIContext(), result.message, 2000);
+        }
+      }
+    } catch (error) {
+      const err = error as BusinessError;
+      hilog.error(0xFF00, 'Index', 'saveModifiedImageToAlbum failed: ' + err.code + ', ' + err.message);
+      showToast(this.getUIContext(), '保存失败: ' + err.message, 2000);
+    }
   }
 }

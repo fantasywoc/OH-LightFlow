@@ -39,6 +39,10 @@
     {
       "name": "location_reason",
       "value": "获取位置信息标记地图位置"
+    },
+    {
+      "name": "write_media_permission_reason",
+      "value": "需要将更新后的GPS坐标写入图片EXIF信息并保存至系统相册"
     }
   ]
 }
