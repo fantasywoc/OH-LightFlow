@@ -414,8 +414,8 @@ export default struct ImagePosition {
 
           }
           .width('100%')
-          .backgroundBlurStyle(BlurStyle.Regular,
-            { colorMode: ThemeColorMode.LIGHT, adaptiveColor: AdaptiveColor.DEFAULT, scale: 1.0 })
+          .backgroundBlurStyle(BlurStyle.Thick,
+            { colorMode: ThemeColorMode.LIGHT, adaptiveColor: AdaptiveColor.DEFAULT, scale: 0.3 })
           .borderRadius({ topLeft: 32, topRight: 32 });
         }
         // .ignoreLayoutSafeArea([LayoutSafeAreaType.SYSTEM], [LayoutSafeAreaEdge.TOP, LayoutSafeAreaEdge.BOTTOM])

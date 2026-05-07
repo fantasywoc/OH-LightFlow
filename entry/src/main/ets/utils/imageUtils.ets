@@ -48,7 +48,8 @@ export async function getOriginalExif(imageUri: string, context: UIContext): Pro
     image.PropertyKey.ISO_SPEED_RATINGS,
     image.PropertyKey.SHUTTER_SPEED,
     image.PropertyKey.APERTURE_VALUE,
-    image.PropertyKey.FOCAL_LENGTH,
+    image.PropertyKey.FOCAL_LENGTH_IN_35_MM_FILM,
+    image.PropertyKey.EXPOSURE_BIAS_VALUE,
     image.PropertyKey.FLASH,
     image.PropertyKey.METERING_MODE,
     image.PropertyKey.WHITE_BALANCE,
@@ -145,14 +146,14 @@ export function parseExifToPhotoInfoData(exifJson: string, filePath: string): Ph
   const resolution = `${exifData['ImageWidth'] || '0'} × ${exifData['ImageLength'] || '0'}`;
   const device = formatDevice(exifData['Make'], exifData['Model']);
   const format = extractFileFormat(filePath);
-  const focalLength = formatFocalLength(exifData['FocalLength']);
-  const iso = exifData['ISOSpeedRatings'] || '';
+  const focalLength = formatFocalLength(exifData['FocalLengthIn35mmFilm']);
+  const iso = exifData['ISOSpeedRatings'] ? `ISO ${exifData['ISOSpeedRatings']}` : '';
   const shutter = formatShutter(exifData['ExposureTime'] || exifData['ShutterSpeed']);
   const aperture = formatAperture(exifData['FNumber'] || exifData['ApertureValue']);
   const flash = formatFlash(exifData['Flash']);
   const whiteBalance = formatWhiteBalance(exifData['WhiteBalance']);
   const hdr = checkHdr(exifData);
-  const ev = formatExposureCompensation(exifData['ExposureCompensation']);
+  const ev = formatExposureCompensation(exifData['ExposureBiasValue']);
 
   console.info('[systemdebug] 解析结果:', {
     fileName, date, resolution, device, format, focalLength, iso, shutter, aperture, flash, whiteBalance, hdr, ev
@@ -241,9 +242,9 @@ function formatDevice(make: string | null, model: string | null): string {
   const makeStr = make || '';
   const modelStr = model || '';
   if (makeStr && modelStr) {
-    return makeStr.includes(modelStr) ? makeStr : `${makeStr} ${modelStr}`;
+    return makeStr.includes(modelStr) ? makeStr : ` ${modelStr}`;
   }
-  return makeStr || modelStr;
+  return modelStr;
 }
 
 function formatFocalLength(focal: string | null): string {
