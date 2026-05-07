@@ -1,7 +1,9 @@
-// PhotoInfoCard.ets 最终精准版（仅添加分割线，不改动原有代码）
+// PhotoInfoCard.ets
+import { PhotoInfoData } from '../utils/imageUtils'
+
 @Component
 export struct PhotoInfoCard {
-  photoData: PhotoInfoData = {
+  @Prop photoData: PhotoInfoData = {
     fileName: '',
     date: '',
     resolution: '',
@@ -16,30 +18,18 @@ export struct PhotoInfoCard {
     aperture: '',
     colorMode: '',
     focusMode: '',
-    flash: '',
     whiteBalance: '',
+    flash: '',
     path: ''
   };
 
   build() {
     Column() {
       this.headerSection()
-
-      // ========== 新增：头部分割线 ==========
       this.separatorLine()
-
       this.histogramSection()
-
-      // ========== 新增：直方图与参数之间分割线 ==========
-      // this.separatorLine()
-
       this.paramsSection()
-
-
-
       this.footerSection()
-
-      // ========== 新增：参数与底部之间分割线 ==========
       this.separatorLine()
       this.footerPath()
     }
@@ -49,7 +39,6 @@ export struct PhotoInfoCard {
     .borderRadius(20)
   }
 
-  // ========== 新增：分割线组件 ==========
   @Builder
   separatorLine() {
     Divider()
@@ -59,55 +48,47 @@ export struct PhotoInfoCard {
       .margin({ top: 5, bottom: 0 })
   }
 
-  // 顶部：文件名 + 时间 + HDR
   @Builder
   headerSection() {
     Column({ space: 4 }) {
       Row() {
-        Text(this.photoData.fileName)
+        Text(this.photoData.fileName || '')
           .fontSize(16)
           .fontWeight(FontWeight.Medium)
           .fontColor('#FFFFFF')
           .layoutWeight(1)
-
-
       }
 
       Row() {
-        Text(this.photoData.date)
+        Text(this.photoData.date || '')
           .fontSize(10)
           .fontColor('#ffaeadad')
           .layoutWeight(1)
 
         if (this.photoData.hdr) {
           this.tag(this.photoData.hdr)
-
         }
       }
     }
     .width('100%')
   }
 
-
-  // 分辨率 + 直方图
   @Builder
   histogramSection() {
     Column({ space: 6 }) {
       Row(){
-      Text(`${this.photoData.resolution}    ${this.photoData.fileSize}`)
-        .fontSize(10)
-        .fontColor('#888888')
-        .width('100%')
-        .layoutWeight(1)
-      Row({ space: 4 }) {
-        if (this.photoData.device) {
-          this.tag(this.photoData.device)
-        }
-        if (this.photoData.format) {
-          this.tag(this.photoData.format)
-      }
-
-
+        Text(`${this.photoData.resolution || ''}    ${this.photoData.fileSize || ''}`)
+          .fontSize(10)
+          .fontColor('#888888')
+          .width('100%')
+          .layoutWeight(1)
+        Row({ space: 4 }) {
+          if (this.photoData.device) {
+            this.tag(this.photoData.device)
+          }
+          if (this.photoData.format) {
+            this.tag(this.photoData.format)
+          }
         }
       }
       Stack()
@@ -120,19 +101,18 @@ export struct PhotoInfoCard {
     .margin({ top: 5 })
   }
 
-  // 拍摄参数行
   @Builder
   paramsSection() {
     Row() {
-      this.paramItem(this.photoData.focalLength)
+      this.paramItem(this.photoData.focalLength || '')
       this.divider()
-      this.paramItem(this.photoData.iso)
+      this.paramItem(this.photoData.iso || '')
       this.divider()
-      this.paramItem(this.photoData.shutter)
+      this.paramItem(this.photoData.shutter || '')
       this.divider()
-      this.paramItem(this.photoData.ev)
+      this.paramItem(this.photoData.ev || '')
       this.divider()
-      this.paramItem(this.photoData.aperture)
+      this.paramItem(this.photoData.aperture || '')
     }
     .width('100%')
     .justifyContent(FlexAlign.SpaceBetween)
@@ -153,7 +133,6 @@ export struct PhotoInfoCard {
       .fontColor('#444444')
   }
 
-  // 底部标签 + 路径
   @Builder
   footerSection() {
     Column({ space: 8 }) {
@@ -164,27 +143,22 @@ export struct PhotoInfoCard {
           .layoutWeight(1)
 
         Row({ space: 4 }) {
-          this.tag(this.photoData.colorMode)
-          this.tag(this.photoData.focusMode)
-          this.tag(this.photoData.ev)
-          this.tag(this.photoData.whiteBalance)
-          this.tag(this.photoData.flash)
+          this.tag(this.photoData.colorMode || '')
+          this.tag(this.photoData.focusMode || '')
+          this.tag(this.photoData.ev || '')
+          this.tag(this.photoData.whiteBalance || '')
+          this.tag(this.photoData.flash || '')
         }
       }
-
-
     }
     .width('100%')
     .margin({ top: 5 })
   }
 
-
-  // 底部标签 + 路径
   @Builder
   footerPath() {
     Column({ space: 8 }) {
-
-      Text(`存储路径：${this.photoData.path}`)
+      Text(`存储路径：${this.photoData.path || ''}`)
         .fontSize(10)
         .fontColor('#ffaeadad')
         .width('100%')
@@ -193,41 +167,15 @@ export struct PhotoInfoCard {
     .margin({ top: 5 })
   }
 
-
-
   @Builder
   tag(content: string) {
     if (content) {
       Text(content)
         .fontSize(10)
-        .fontColor('#ff838282')
+        .fontColor('#ff919191')
         .padding({ left: 4, right: 4, top: 2, bottom: 2 })
         .backgroundColor('#2A2A2A')
         .borderRadius(4)
     }
   }
-
-}
-
-
-
-
-export interface PhotoInfoData {
-  fileName: string;
-  date: string;
-  resolution: string;
-  fileSize: string;
-  device: string;
-  format: string;
-  hdr: string;
-  focalLength: string;
-  iso: string;
-  shutter: string;
-  ev: string;
-  aperture: string;
-  colorMode: string;
-  focusMode: string;
-  whiteBalance: string;
-  flash: string;
-  path: string;
 }

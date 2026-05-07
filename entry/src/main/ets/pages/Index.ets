@@ -35,10 +35,34 @@ import { debounce ,showToast} from  '../utils/utils'
 import {ExifUtility} from  '../utils/ExifUtility'
 import LibExifTool from '../utils/LibExifTool';
 import { SaveImageHelper } from '../utils/SaveImageHelper';
+import { PhotoInfoCard } from '../components/PhotoInfoCard'
+import {getOriginalExif ,parseExifToPhotoInfoData,PhotoInfoData} from  '../utils/imageUtils'
 
 @Entry
 @Component
 export default struct ImagePosition {
+
+  @State photoData: PhotoInfoData = {
+    fileName: '',
+    date: '',
+    resolution: '',
+    fileSize: '',
+    device: '',
+    format: '',
+    hdr: '',
+    focalLength: '',
+    iso: '',
+    shutter: '',
+    ev: '',
+    aperture: '',
+    colorMode: '',
+    focusMode: '',
+    whiteBalance: '',
+    flash: '',
+    path: ''
+  };
+
+
   @Provide('pageInfos') pageInfos: NavPathStack = new NavPathStack();
   @State hasMarker: boolean = false;
   @State address: string = '';
@@ -253,6 +277,9 @@ export default struct ImagePosition {
               .width('100%')
               .padding({ top: 24, left: 16, right: 16 })
               .clip(true);
+              PhotoInfoCard({ photoData: this.photoData })
+                .margin({ top: 16 })
+                .width('90%')
             }
 
 
@@ -446,8 +473,13 @@ export default struct ImagePosition {
           if (!this.picSet.has(uri)) {
 
             let info = LibExifTool.getImageInfo(LibExifTool.uriToPath(uri));
+            const exifJson = await  getOriginalExif(uri, this.getUIContext());
+            this.photoData = parseExifToPhotoInfoData(exifJson, uri);
+            console.info('[systemdebug] getOriginalExif 返回:', exifJson);
+            showToast(this.getUIContext(), exifJson);
+
             if (info && info.make) {
-              showToast(this.getUIContext(),  info.make);
+              showToast(this.getUIContext(),  info.model);
             } else {
               showToast(this.getUIContext(), "无相机信息test Fail");
             }
