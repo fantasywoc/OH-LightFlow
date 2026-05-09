@@ -135,13 +135,28 @@ export default struct ImagePosition {
           
           if (picInfo) {
             if (this.lastClickMarker === marker) {
-              // 再次点击，隐藏地址
+              // 再次点击，隐藏地址并恢复边框颜色
               this.address = '';
+              // 如果是图片标记，重置边框为白色
+              if (picInfo.uri && picInfo.uri !== '') {
+                this.setMarkerIcon(marker, false);
+              }
               this.lastClickMarker = null;
             } else {
-              // 点击新标记，显示地址
+              // 点击新标记，先重置之前标记的边框
+              if (this.lastClickMarker) {
+                const prevPicInfo = this.picMap.get(this.lastClickMarker.getId());
+                if (prevPicInfo && prevPicInfo.uri && prevPicInfo.uri !== '') {
+                  this.setMarkerIcon(this.lastClickMarker, false);
+                }
+              }
+              // 显示新标记的地址并设置蓝色边框
               this.address = picInfo.address;
               this.lastClickMarker = marker;
+              // 如果是图片标记，设置边框为蓝色
+              if (picInfo.uri && picInfo.uri !== '') {
+                this.setMarkerIcon(marker, true);
+              }
             }
           }
         };
