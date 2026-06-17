@@ -6,6 +6,6 @@
   "author": "",
   "license": "",
   "dependencies": {
-    "libexiftool.so": "file:./src/main/cpp/types/libexiftool"
+    "libentry.so": "file:./src/main/cpp/types/libentry"
   }
 }

@@ -1,9 +1,0 @@
-{
-  "name": "libexiftool.so",
-  "version": "1.0.0",
-  "description": "EXIF tool native library for HarmonyOS",
-  "main": "",
-  "author": "",
-  "license": "",
-  "types": "index.d.ts"
-}

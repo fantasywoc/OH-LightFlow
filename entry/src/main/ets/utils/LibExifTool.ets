@@ -1,12 +1,14 @@
 /**
- * libexiftool 工具类
- * 封装 libexif 库的常用功能，提供 EXIF 数据读写能力
- * 更新时间: 2026-04-29
+ * ExifTool 工具类
+ * 封装基于 Exiv2 的 EXIF 数据读写能力
+ * 更新时间: 2026-06-17
  */
 
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { fileUri } from '@kit.CoreFileKit';
-import libexiftool from 'libexiftool.so';
+import libentry from 'libentry.so';
+
+type ExifToolNativeInstance = object;
 
 /**
  * EXIF标签信息
@@ -71,29 +73,29 @@ export interface IfdIndex {
  * 标签映射接口
  */
 export interface TagMap {
-  IMAGE_WIDTH: number;
-  IMAGE_LENGTH: number;
-  MAKE: number;
-  MODEL: number;
-  ORIENTATION: number;
-  DATE_TIME: number;
-  DATE_TIME_ORIGINAL: number;
-  DATE_TIME_DIGITIZED: number;
-  EXPOSURE_TIME: number;
-  F_NUMBER: number;
-  ISO_SPEED_RATINGS: number;
-  SHUTTER_SPEED_VALUE: number;
-  APERTURE_VALUE: number;
-  FOCAL_LENGTH: number;
-  FLASH: number;
-  GPS_LATITUDE: number;
-  GPS_LATITUDE_REF: number;
-  GPS_LONGITUDE: number;
-  GPS_LONGITUDE_REF: number;
-  GPS_ALTITUDE: number;
-  GPS_ALTITUDE_REF: number;
-  GPS_TIME_STAMP: number;
-  GPS_DATE_STAMP: number;
+  IMAGE_WIDTH: string;
+  IMAGE_LENGTH: string;
+  MAKE: string;
+  MODEL: string;
+  ORIENTATION: string;
+  DATE_TIME: string;
+  DATE_TIME_ORIGINAL: string;
+  DATE_TIME_DIGITIZED: string;
+  EXPOSURE_TIME: string;
+  F_NUMBER: string;
+  ISO_SPEED_RATINGS: string;
+  SHUTTER_SPEED_VALUE: string;
+  APERTURE_VALUE: string;
+  FOCAL_LENGTH: string;
+  FLASH: string;
+  GPS_LATITUDE: string;
+  GPS_LATITUDE_REF: string;
+  GPS_LONGITUDE: string;
+  GPS_LONGITUDE_REF: string;
+  GPS_ALTITUDE: string;
+  GPS_ALTITUDE_REF: string;
+  GPS_TIME_STAMP: string;
+  GPS_DATE_STAMP: string;
 }
 
 const IFD_MAP: IfdIndex = {
@@ -105,29 +107,29 @@ const IFD_MAP: IfdIndex = {
 };
 
 const TAG_MAP: TagMap = {
-  IMAGE_WIDTH: 0x0100,
-  IMAGE_LENGTH: 0x0101,
-  MAKE: 0x010f,
-  MODEL: 0x0110,
-  ORIENTATION: 0x0112,
-  DATE_TIME: 0x0132,
-  DATE_TIME_ORIGINAL: 0x9003,
-  DATE_TIME_DIGITIZED: 0x9004,
-  EXPOSURE_TIME: 0x829a,
-  F_NUMBER: 0x829d,
-  ISO_SPEED_RATINGS: 0x8827,
-  SHUTTER_SPEED_VALUE: 0x9201,
-  APERTURE_VALUE: 0x9202,
-  FOCAL_LENGTH: 0x920a,
-  FLASH: 0x9209,
-  GPS_LATITUDE: 0x0002,
-  GPS_LATITUDE_REF: 0x0001,
-  GPS_LONGITUDE: 0x0004,
-  GPS_LONGITUDE_REF: 0x0003,
-  GPS_ALTITUDE: 0x0006,
-  GPS_ALTITUDE_REF: 0x0005,
-  GPS_TIME_STAMP: 0x0007,
-  GPS_DATE_STAMP: 0x001d
+  IMAGE_WIDTH: 'Exif.Image.ImageWidth',
+  IMAGE_LENGTH: 'Exif.Image.ImageLength',
+  MAKE: 'Exif.Image.Make',
+  MODEL: 'Exif.Image.Model',
+  ORIENTATION: 'Exif.Image.Orientation',
+  DATE_TIME: 'Exif.Image.DateTime',
+  DATE_TIME_ORIGINAL: 'Exif.Photo.DateTimeOriginal',
+  DATE_TIME_DIGITIZED: 'Exif.Photo.DateTimeDigitized',
+  EXPOSURE_TIME: 'Exif.Photo.ExposureTime',
+  F_NUMBER: 'Exif.Photo.FNumber',
+  ISO_SPEED_RATINGS: 'Exif.Photo.ISOSpeedRatings',
+  SHUTTER_SPEED_VALUE: 'Exif.Photo.ShutterSpeedValue',
+  APERTURE_VALUE: 'Exif.Photo.ApertureValue',
+  FOCAL_LENGTH: 'Exif.Photo.FocalLength',
+  FLASH: 'Exif.Photo.Flash',
+  GPS_LATITUDE: 'Exif.GPSInfo.GPSLatitude',
+  GPS_LATITUDE_REF: 'Exif.GPSInfo.GPSLatitudeRef',
+  GPS_LONGITUDE: 'Exif.GPSInfo.GPSLongitude',
+  GPS_LONGITUDE_REF: 'Exif.GPSInfo.GPSLongitudeRef',
+  GPS_ALTITUDE: 'Exif.GPSInfo.GPSAltitude',
+  GPS_ALTITUDE_REF: 'Exif.GPSInfo.GPSAltitudeRef',
+  GPS_TIME_STAMP: 'Exif.GPSInfo.GPSTimeStamp',
+  GPS_DATE_STAMP: 'Exif.GPSInfo.GPSDateStamp'
 };
 
 const TAG = 'LibExifTool';
@@ -157,31 +159,20 @@ export class LibExifTool {
   static readExifData(imagePath: string): Record<string, string> {
     try {
       hilog.info(0xFF00, TAG, `[readExifData] Reading EXIF data from: ${imagePath}`);
-      hilog.info(0xFF00, TAG, `[readExifData] Path length: ${imagePath.length}`);
-      hilog.info(0xFF00, TAG, `[readExifData] Path starts with: ${imagePath.substring(0, 20)}...`);
       
-      const exifData: Record<string, string> = libexiftool.readExifData(imagePath);
+      const exifTool: ExifToolNativeInstance | null = libentry.openImage(imagePath) as ExifToolNativeInstance | null;
+      if (!exifTool) {
+        hilog.warn(0xFF00, TAG, `[readExifData] Failed to open image`);
+        return {};
+      }
+
+      const exifData: Record<string, string> = libentry.getAllExifData(exifTool);
       const keys = Object.keys(exifData);
       
       hilog.info(0xFF00, TAG, `[readExifData] EXIF data read successfully, ${keys.length} tags found`);
       
       if (keys.length > 0) {
         hilog.info(0xFF00, TAG, `[readExifData] First 5 tags: ${keys.slice(0, 5).join(', ')}`);
-        // 打印 Make 标签的值（如果存在）
-        const makeValue = exifData['0x010F'];
-        if (makeValue !== undefined) {
-          hilog.info(0xFF00, TAG, `[readExifData] Make tag found: ${makeValue}`);
-        } else {
-          hilog.info(0xFF00, TAG, `[readExifData] Make tag NOT found in exifData`);
-          // 检查所有可能的键名变体
-          hilog.info(0xFF00, TAG, `[readExifData] Checking for Make tag with different cases...`);
-          for (let i = 0; i < keys.length; i++) {
-            const key = keys[i];
-            if (key.toLowerCase() === '0x010f' || key.indexOf('Make') !== -1) {
-              hilog.info(0xFF00, TAG, `[readExifData] Found potential Make tag: ${key} = ${exifData[key]}`);
-            }
-          }
-        }
       } else {
         hilog.warn(0xFF00, TAG, `[readExifData] No EXIF tags found in image`);
       }
@@ -195,8 +186,24 @@ export class LibExifTool {
 
   static getSupportedTags(): ExifTagInfo[] {
     try {
-      const tags: ExifTagInfo[] = libexiftool.getSupportedTags();
-      hilog.info(0xFF00, TAG, `Supported tags count: ${tags.length}`);
+      hilog.info(0xFF00, TAG, `[getSupportedTags] Returning common EXIF tags`);
+      const tags: ExifTagInfo[] = [
+        { id: 0x0100, name: 'ImageWidth' },
+        { id: 0x0101, name: 'ImageLength' },
+        { id: 0x010f, name: 'Make' },
+        { id: 0x0110, name: 'Model' },
+        { id: 0x0112, name: 'Orientation' },
+        { id: 0x0132, name: 'DateTime' },
+        { id: 0x9003, name: 'DateTimeOriginal' },
+        { id: 0x9004, name: 'DateTimeDigitized' },
+        { id: 0x829a, name: 'ExposureTime' },
+        { id: 0x829d, name: 'FNumber' },
+        { id: 0x8827, name: 'ISOSpeedRatings' },
+        { id: 0x9201, name: 'ShutterSpeedValue' },
+        { id: 0x9202, name: 'ApertureValue' },
+        { id: 0x920a, name: 'FocalLength' },
+        { id: 0x9209, name: 'Flash' }
+      ];
       return tags;
     } catch (error) {
       hilog.error(0xFF00, TAG, `Failed to get supported tags: ${error}`);
@@ -207,13 +214,55 @@ export class LibExifTool {
   static getExifEntry(imagePath: string, ifd: number, tag: number): string | undefined {
     try {
       hilog.info(0xFF00, TAG, `Getting EXIF entry: ifd=${ifd}, tag=0x${tag.toString(16)}`);
-      const value: string | undefined = libexiftool.getExifEntry(imagePath, ifd, tag);
+      
+      const exifTool: ExifToolNativeInstance | null = libentry.openImage(imagePath) as ExifToolNativeInstance | null;
+      if (!exifTool) {
+        return undefined;
+      }
+
+      const tagKey = LibExifTool.convertTagToKey(ifd, tag);
+      const value: string = libentry.getExifField(exifTool, tagKey);
+      
       hilog.info(0xFF00, TAG, `EXIF entry value: ${value ?? 'not found'}`);
-      return value;
+      return value || undefined;
     } catch (error) {
       hilog.error(0xFF00, TAG, `Failed to get EXIF entry: ${error}`);
       return undefined;
     }
+  }
+
+  private static convertTagToKey(ifd: number, tag: number): string {
+    const ifdPrefixes: string[] = ['Exif.Image.', 'Exif.Thumbnail.', 'Exif.Photo.', 'Exif.GPSInfo.', 'Exif.Interoperability.'];
+    const prefix = ifdPrefixes[ifd] || 'Exif.Image.';
+    
+    const tagNames: Record<number, string> = {
+      0x0100: 'ImageWidth',
+      0x0101: 'ImageLength',
+      0x010f: 'Make',
+      0x0110: 'Model',
+      0x0112: 'Orientation',
+      0x0132: 'DateTime',
+      0x9003: 'DateTimeOriginal',
+      0x9004: 'DateTimeDigitized',
+      0x829a: 'ExposureTime',
+      0x829d: 'FNumber',
+      0x8827: 'ISOSpeedRatings',
+      0x9201: 'ShutterSpeedValue',
+      0x9202: 'ApertureValue',
+      0x920a: 'FocalLength',
+      0x9209: 'Flash',
+      0x0002: 'GPSLatitude',
+      0x0001: 'GPSLatitudeRef',
+      0x0004: 'GPSLongitude',
+      0x0003: 'GPSLongitudeRef',
+      0x0006: 'GPSAltitude',
+      0x0005: 'GPSAltitudeRef',
+      0x0007: 'GPSTimeStamp',
+      0x001d: 'GPSDateStamp'
+    };
+    
+    const tagName = tagNames[tag] || `Tag${tag.toString(16)}`;
+    return prefix + tagName;
   }
 
   static getImageInfo(imagePath: string): ImageInfo | null {
@@ -225,12 +274,12 @@ export class LibExifTool {
       
       hilog.info(0xFF00, TAG, `[getImageInfo] exifData has ${keys.length} keys`);
       
-      const widthStr = exifData['0x0100'];
-      const heightStr = exifData['0x0101'];
-      const make = exifData['0x010F'];
-      const model = exifData['0x0110'];
-      const orientationStr = exifData['0x0112'];
-      const dateTime = exifData['0x0132'];
+      const widthStr = exifData['Exif.Image.ImageWidth'] || exifData['Exif.Photo.PixelXDimension'];
+      const heightStr = exifData['Exif.Image.ImageLength'] || exifData['Exif.Photo.PixelYDimension'];
+      const make = exifData['Exif.Image.Make'];
+      const model = exifData['Exif.Image.Model'];
+      const orientationStr = exifData['Exif.Image.Orientation'];
+      const dateTime = exifData['Exif.Photo.DateTimeOriginal'] || exifData['Exif.Image.DateTime'];
       
       hilog.info(0xFF00, TAG, `[getImageInfo] widthStr: ${widthStr ?? 'undefined'}`);
       hilog.info(0xFF00, TAG, `[getImageInfo] heightStr: ${heightStr ?? 'undefined'}`);
@@ -260,11 +309,11 @@ export class LibExifTool {
     try {
       const exifData = LibExifTool.readExifData(imagePath);
 
-      let latStr = exifData['GPSLatitude'] || exifData['0x0002'];
-      let latRef = exifData['GPSLatitudeRef'] || exifData['0x0001'] || 'N';
-      let lngStr = exifData['GPSLongitude'] || exifData['0x0004'];
-      let lngRef = exifData['GPSLongitudeRef'] || exifData['0x0003'] || 'E';
-      let altStr = exifData['GPSAltitude'] || exifData['0x0006'];
+      let latStr = exifData['Exif.GPSInfo.GPSLatitude'];
+      let latRef = exifData['Exif.GPSInfo.GPSLatitudeRef'] || 'N';
+      let lngStr = exifData['Exif.GPSInfo.GPSLongitude'];
+      let lngRef = exifData['Exif.GPSInfo.GPSLongitudeRef'] || 'E';
+      let altStr = exifData['Exif.GPSInfo.GPSAltitude'];
 
       if (!latStr || !lngStr) {
         hilog.warn(0xFF00, TAG, `GPS data not found in image: ${imagePath}`);
@@ -292,7 +341,7 @@ export class LibExifTool {
   static getDateTimeOriginal(imagePath: string): string {
     try {
       const exifData = LibExifTool.readExifData(imagePath);
-      const dateTime = exifData['0x9003'] || exifData['0x9004'] || exifData['0x0132'] || '';
+      const dateTime = exifData['Exif.Photo.DateTimeOriginal'] || exifData['Exif.Photo.DateTimeDigitized'] || exifData['Exif.Image.DateTime'] || '';
       return dateTime;
     } catch (error) {
       hilog.error(0xFF00, TAG, `Failed to get date time: ${error}`);
@@ -304,8 +353,8 @@ export class LibExifTool {
     try {
       const exifData = LibExifTool.readExifData(imagePath);
       const result: CameraInfo = {
-        make: exifData['0x010F'] || '',
-        model: exifData['0x0110'] || ''
+        make: exifData['Exif.Image.Make'] || '',
+        model: exifData['Exif.Image.Model'] || ''
       };
       return result;
     } catch (error) {
@@ -322,11 +371,11 @@ export class LibExifTool {
     try {
       const exifData = LibExifTool.readExifData(imagePath);
       const result: CameraSettings = {
-        exposureTime: exifData['0x829A'] || '',
-        fNumber: exifData['0x829D'] || '',
-        iso: exifData['0x8827'] || '',
-        focalLength: exifData['0x920A'] || '',
-        flash: exifData['0x9209'] || ''
+        exposureTime: exifData['Exif.Photo.ExposureTime'] || '',
+        fNumber: exifData['Exif.Photo.FNumber'] || '',
+        iso: exifData['Exif.Photo.ISOSpeedRatings'] || '',
+        focalLength: exifData['Exif.Photo.FocalLength'] || '',
+        flash: exifData['Exif.Photo.Flash'] || ''
       };
       return result;
     } catch (error) {
@@ -366,8 +415,11 @@ export class LibExifTool {
 
   static hasExifData(imagePath: string): boolean {
     try {
-      const exifData = LibExifTool.readExifData(imagePath);
-      return Object.keys(exifData).length > 0;
+      const exifTool: ExifToolNativeInstance | null = libentry.openImage(imagePath) as ExifToolNativeInstance | null;
+      if (!exifTool) {
+        return false;
+      }
+      return libentry.hasExifData(exifTool);
     } catch (error) {
       hilog.error(0xFF00, TAG, `Failed to check EXIF data: ${error}`);
       return false;
@@ -387,23 +439,34 @@ export class LibExifTool {
   static getReadableExifInfo(imagePath: string): Record<string, string> {
     try {
       const exifData = LibExifTool.readExifData(imagePath);
-      const supportedTags = LibExifTool.getSupportedTags();
-
-      const tagIdToName = new Map<number, string>();
-      supportedTags.forEach((tag: ExifTagInfo) => {
-        tagIdToName.set(tag.id, tag.name);
-      });
-
       const readableInfo: Record<string, string> = {};
+
+      const tagKeyToName: Record<string, string> = {
+        'Exif.Image.ImageWidth': 'ImageWidth',
+        'Exif.Image.ImageLength': 'ImageLength',
+        'Exif.Image.Make': 'Make',
+        'Exif.Image.Model': 'Model',
+        'Exif.Image.Orientation': 'Orientation',
+        'Exif.Image.DateTime': 'DateTime',
+        'Exif.Photo.DateTimeOriginal': 'DateTimeOriginal',
+        'Exif.Photo.DateTimeDigitized': 'DateTimeDigitized',
+        'Exif.Photo.ExposureTime': 'ExposureTime',
+        'Exif.Photo.FNumber': 'FNumber',
+        'Exif.Photo.ISOSpeedRatings': 'ISOSpeedRatings',
+        'Exif.Photo.ShutterSpeedValue': 'ShutterSpeedValue',
+        'Exif.Photo.ApertureValue': 'ApertureValue',
+        'Exif.Photo.FocalLength': 'FocalLength',
+        'Exif.Photo.Flash': 'Flash',
+        'Exif.GPSInfo.GPSLatitude': 'GPSLatitude',
+        'Exif.GPSInfo.GPSLatitudeRef': 'GPSLatitudeRef',
+        'Exif.GPSInfo.GPSLongitude': 'GPSLongitude',
+        'Exif.GPSInfo.GPSLongitudeRef': 'GPSLongitudeRef',
+        'Exif.GPSInfo.GPSAltitude': 'GPSAltitude',
+        'Exif.GPSInfo.GPSAltitudeRef': 'GPSAltitudeRef'
+      };
+
       Object.keys(exifData).forEach((key: string) => {
-        let tagName = key;
-        if (key.startsWith('0x')) {
-          const tagId = parseInt(key, 16);
-          const name = tagIdToName.get(tagId);
-          if (name) {
-            tagName = name;
-          }
-        }
+        const tagName = tagKeyToName[key] || key;
         readableInfo[tagName] = exifData[key];
       });
 
