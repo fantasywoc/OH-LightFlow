@@ -1,0 +1,51 @@
+/* zconf.h -- configuration of the zlib compression library
+ * Copyright (C) 1995-2016 Jean-loup Gailly, Mark Adler
+ * For conditions of distribution and use, see copyright notice in zlib.h
+ */
+
+#ifndef ZCONF_H
+#define ZCONF_H
+
+#define Z_PREFIX_SET
+
+#define _WIN32
+#define WIN32
+
+#define STDC
+#define Z_HAVE_STDARG_H
+
+typedef unsigned char  Byte;
+typedef unsigned int   uInt;
+typedef unsigned long  uLong;
+
+typedef Byte  FAR Bytef;
+typedef char  FAR charf;
+typedef int   FAR intf;
+typedef uInt  FAR uIntf;
+typedef uLong FAR uLongf;
+
+typedef void const *voidpc;
+typedef void FAR   *voidpf;
+typedef void       *voidp;
+
+typedef unsigned long z_crc_t;
+
+#define ZEXTERN extern
+#define ZEXPORT
+#define ZEXPORTVA
+#define FAR
+
+#define MAX_MEM_LEVEL 9
+#define MAX_WBITS   15
+
+#ifndef z_off_t
+#  define z_off_t long
+#endif
+
+#if defined(_WIN32) && !defined(__GNUC__)
+#  define z_off64_t __int64
+#else
+#  define z_off64_t z_off_t
+#endif
+
+#endif /* ZCONF_H */

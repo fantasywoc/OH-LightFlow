@@ -1,0 +1,64 @@
+cmake_minimum_required(VERSION 3.15)
+project(ExifTool LANGUAGES CXX C)
+
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+set(EXIF_DIR "${PROJECT_SOURCE_DIR}/EXIF")
+
+set(ZLIB_DIR "${EXIF_DIR}/zlib-1.3/zlib-1.3")
+set(EXPAT_DIR "${EXIF_DIR}/libexpat-R_2_8_1/libexpat-R_2_8_1/expat")
+set(EXIV2_DIR "${EXIF_DIR}/exiv2-0.27.7/exiv2-0.27.7")
+
+set(SKIP_INSTALL_ALL ON CACHE BOOL "" FORCE)
+set(SKIP_INSTALL_FILES ON CACHE BOOL "" FORCE)
+set(SKIP_INSTALL_EXPORT ON CACHE BOOL "" FORCE)
+add_subdirectory(${ZLIB_DIR} zlib_build)
+
+set(EXPAT_BUILD_TOOLS OFF CACHE BOOL "" FORCE)
+set(EXPAT_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(EXPAT_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(EXPAT_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+set(EXPAT_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+add_subdirectory(${EXPAT_DIR} expat_build)
+
+set(EXIV2_ENABLE_XMP OFF CACHE BOOL "" FORCE)
+set(EXIV2_ENABLE_WEBREADY OFF CACHE BOOL "" FORCE)
+set(EXIV2_ENABLE_CURL OFF CACHE BOOL "" FORCE)
+set(EXIV2_ENABLE_NLS OFF CACHE BOOL "" FORCE)
+set(EXIV2_ENABLE_PRINTUCS2 ON CACHE BOOL "" FORCE)
+set(EXIV2_ENABLE_LENSDATA ON CACHE BOOL "" FORCE)
+set(EXIV2_ENABLE_EXTERNAL ON CACHE BOOL "" FORCE)
+set(EXIV2_BUILD_EXIV2_COMMAND OFF CACHE BOOL "" FORCE)
+set(EXIV2_BUILD_SAMPLES OFF CACHE BOOL "" FORCE)
+set(EXIV2_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(EXIV2_ENABLE_PNG OFF CACHE BOOL "" FORCE)
+add_subdirectory(${EXIV2_DIR} exiv2_build)
+
+add_library(ExifTool STATIC
+    ExifTool.cpp
+    ExifTool.hpp
+)
+
+target_include_directories(ExifTool PRIVATE
+    ${EXIV2_DIR}/include
+    ${CMAKE_CURRENT_BINARY_DIR}
+)
+
+target_link_libraries(ExifTool PRIVATE
+    exiv2lib
+)
+
+add_executable(ExifToolTest
+    test.cpp
+)
+
+target_include_directories(ExifToolTest PRIVATE
+    ${EXIV2_DIR}/include
+    ${CMAKE_CURRENT_BINARY_DIR}
+)
+
+target_link_libraries(ExifToolTest PRIVATE
+    ExifTool
+    exiv2lib
+)
